@@ -45,8 +45,8 @@ fn cellNoise(p: vec2<f32>) -> f32 {
 }
 
 fn liquidDistort(uv: vec2<f32>, time: f32) -> vec2<f32> {
-    let wave1 = sin((uv.y + time) * 20.0) * 0.003;
-    let wave2 = cos((uv.x + time * 0.5) * 25.0) * 0.003;
+    let wave1 = sin((uv.y + time * 0.2) * 6.0) * 0.01;
+    let wave2 = cos((uv.x + time * 0.1) * 4.0) * 0.01;
     return uv + vec2(wave1, wave2);
 }
 
@@ -60,19 +60,20 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let displacedUV = distortedUV + vec2(depthOffset);
     var finalColor = textureSample(img, sampler0, displacedUV);
 
-    // Golden dots on dark depth map regions
+    // Golden dots on dark depth map regions with shimmer
     let gridUV = uv * vec2(300.0);
-    let brightness = cellNoise(gridUV);
+    let brightness = cellNoise(gridUV + vec2(time * 0.5, time * 0.5));
     let gridDist = distance(fract(gridUV), vec2(0.5));
     let dotMask = smoothstep(0.35, 0.33, gridDist);
 
     let baseLuma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
-    let lumaMask = 1.0 - smoothstep(0.6, 0.9, baseLuma);
+    let lumaMask = 1.0 - smoothstep(0.55, 0.75, baseLuma);
 
     let depthMask = smoothstep(0.4, 0.2, depth);
-    let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * brightness * lumaMask * depthMask;
-    finalColor = vec4<f32>(finalColor.rgb + dotOverlay, 1.0);
+    let shimmer = 0.9 + 0.1 * sin(time * 4.0 + gridUV.x * 0.5 + gridUV.y * 0.5);
+    let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * brightness * shimmer * lumaMask * depthMask;
 
+    finalColor = vec4<f32>(finalColor.rgb + dotOverlay, 1.0);
     return finalColor;
 }`;
 
