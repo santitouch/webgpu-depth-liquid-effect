@@ -97,7 +97,7 @@ async function initWebGPU() {
   context.configure({ device, format });
 
   const img = await loadTexture(device, './assets/image.png', canvas);
-  const depthMap = await loadTexture(device, './assets/depth.jpg');
+  const depthMap = await loadTexture(device, './assets/depth.png');
 
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
