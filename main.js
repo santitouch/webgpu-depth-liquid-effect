@@ -1,4 +1,4 @@
-// Project: WebGPU Scanning Effect with Depth Map + Liquid Distortion (Image Resolution Fix)
+// Project: WebGPU Scanning Effect with Depth Map + Golden Dot Overlay (No Liquid Distortion)
 // Requirements: A high-res PNG image (2464x1856) and its depth map
 
 const vertexShaderWGSL = `
@@ -39,37 +39,43 @@ const fragmentShaderWGSL = `
 @group(0) @binding(2) var depthMap : texture_2d<f32>;
 @group(0) @binding(3) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
 
+fn cellNoise(p: vec2<f32>) -> f32 {
+  let cell = floor(p);
+  let f = fract(p);
+  let hash = dot(cell, vec2<f32>(127.1, 311.7));
+  return fract(sin(hash) * 43758.5453);
+}
+
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let mousePos = mouseData.xy;
     let isInside = mouseData.z;
     let time = mouseData.w;
 
-    let dist = distance(uv, mousePos);
     let depth = textureSample(depthMap, sampler0, uv).r;
-    let depthOffset = (depth - 0.5) * 0.003;
+    let depthOffset = (depth - 0.5) * 0.002;
+    let displacedUV = uv + vec2(depthOffset);
+    let baseColor = textureSample(img, sampler0, displacedUV);
 
-    var scan = 0.0;
+    var finalColor = baseColor;
+
     if (isInside > 0.5) {
-        let ringRadius = 0.2 + 0.03 * sin(time * 6.0);
-        let fade = smoothstep(ringRadius + 0.01, ringRadius - 0.01, dist);
-        scan = fade * 0.6;
-    }
+        let scanPos = fract(time * 0.25);
+        let scanStrength = smoothstep(0.02, 0.0, abs(depth - scanPos));
 
-    var distortedUV = uv;
-    if (isInside > 0.5 && dist < 0.25) {
-        let wave = 0.0025 * sin(40.0 * dist - time * 5.0);
-        let direction = normalize(uv - mousePos + vec2(0.0001));
-        distortedUV += direction * wave * (0.25 - dist);
-    }
+        let gridUV = uv * vec2(120.0);
+        let brightness = cellNoise(gridUV);
+        let gridDist = distance(fract(gridUV), vec2(0.5));
+        let dotMask = smoothstep(0.5, 0.45, gridDist);
 
-    distortedUV += vec2(depthOffset);
-    let color = textureSample(img, sampler0, distortedUV);
-    let highlight = vec4(1.0, 1.0, 1.0, 1.0);
-    let finalColor = mix(color, highlight, scan);
+        let dotOverlay = vec3(1.0, 0.8, 0.2) * dotMask * brightness * scanStrength;
+        finalColor.rgb += dotOverlay;
+    }
 
     return finalColor;
 }`;
+
+// Rest of the JS file remains the same...
 
 const canvas = document.querySelector('#webgpu-canvas');
 const mouse = { x: 0, y: 0, inside: false };
