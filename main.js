@@ -32,6 +32,38 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     return output;
 }`;
 
+const vertexShaderWGSL = `
+struct VertexOutput {
+    @builtin(position) Position : vec4<f32>,
+    @location(0) uv : vec2<f32>,
+};
+
+@vertex
+fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
+    var pos = array<vec2<f32>, 6>(
+        vec2(-1.0, -1.0),
+        vec2( 1.0, -1.0),
+        vec2(-1.0,  1.0),
+        vec2(-1.0,  1.0),
+        vec2( 1.0, -1.0),
+        vec2( 1.0,  1.0)
+    );
+
+    var uv = array<vec2<f32>, 6>(
+        vec2(0.0, 1.0),
+        vec2(1.0, 1.0),
+        vec2(0.0, 0.0),
+        vec2(0.0, 0.0),
+        vec2(1.0, 1.0),
+        vec2(1.0, 0.0)
+    );
+
+    var output : VertexOutput;
+    output.Position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
+    output.uv = uv[vertexIndex];
+    return output;
+}`;
+
 const fragmentShaderWGSL = `
 @group(0) @binding(0) var sampler0 : sampler;
 @group(0) @binding(1) var img : texture_2d<f32>;
@@ -59,22 +91,22 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let depth = textureSample(depthMap, sampler0, uv).r;
     var finalColor = textureSample(img, sampler0, uv);
 
-    let gridUV = uv * vec2(350.0); // Smaller dots
+    let gridUV = uv * vec2(350.0);
     let noise = cellNoise(gridUV + vec2(time * 0.15));
     let gridDist = distance(fract(gridUV), vec2(0.5));
-    let dotMask = smoothstep(0.25, 0.2, gridDist); // Smaller sharper dots
+    let dotMask = smoothstep(0.22, 0.17, gridDist); // Slightly tighter for small dots
 
     let luma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
-    let lumaMask = 1.0 - smoothstep(0.985, 1.01, luma); // include up to #FCFCFC
-    let depthMask = smoothstep(0.6, 0.05, depth); // Looser depth threshold
+    let lumaMask = 1.0 - smoothstep(0.985, 1.015, luma); // Broaden tolerance
+    let depthMask = smoothstep(0.65, 0.0, depth); // Slightly higher tolerance
 
     let distToMouse = distance(uv, mouseData.xy);
-    let scanFalloff = smoothstep(0.4, 0.0, distToMouse);
+    let scanFalloff = smoothstep(0.45, 0.0, distToMouse); // Extended reach
 
     let rand = hash(floor(gridUV));
-    let sizeScale = 0.5 + 1.0 * rand;
-    let glowScale = 0.2 + 0.5 * rand;
-    let shimmer = 0.5 + 0.5 * sin(time * (0.5 + rand * 2.5) + rand * 50.0);
+    let sizeScale = 0.3 + 0.7 * rand;
+    let glowScale = 0.2 + 0.4 * rand;
+    let shimmer = 0.4 + 0.6 * sin(time * (0.5 + rand * 2.5) + rand * 50.0);
 
     let dotOverlay = vec3<f32>(1.0, 0.85, 0.4) * dotMask * shimmer * lumaMask * depthMask * scanFalloff * sizeScale;
     let glow = dotOverlay * glowScale;
@@ -86,6 +118,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     finalColor = vec4<f32>(mix(finalColor.rgb, finalColor.rgb + dotOverlay + glow, tilt), 1.0);
     return finalColor;
 }`;
+
 
 // JS remains unchanged
 const canvas = document.querySelector('#webgpu-canvas');
