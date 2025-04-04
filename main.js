@@ -60,23 +60,24 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var finalColor = textureSample(img, sampler0, uv);
 
     let gridUV = uv * vec2(250.0);
-    let noise = cellNoise(gridUV + vec2(time * 0.5));
+    let noise = cellNoise(gridUV + vec2(time * 0.25));
     let gridDist = distance(fract(gridUV), vec2(0.5));
-    let dotMask = smoothstep(0.33, 0.31, gridDist);
+    let dotMask = smoothstep(0.34, 0.30, gridDist);
 
     let luma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
-    let lumaMask = 1.0 - smoothstep(0.9, 1.0, luma);
-    let depthMask = smoothstep(0.45, 0.1, depth);
+    let lumaMask = 1.0 - smoothstep(0.99, 1.01, luma);
+    let depthMask = smoothstep(0.55, 0.1, depth);
 
     let distToMouse = distance(uv, mouseData.xy);
-    let scanFalloff = smoothstep(0.2, 0.0, distToMouse);
+    let scanFalloff = smoothstep(0.35, 0.0, distToMouse);
 
     let rand = hash(floor(gridUV));
-    let scale = 0.6 + 0.8 * rand;
-    let shimmer = 0.5 + 0.5 * sin(time * 3.0 + rand * 20.0);
+    let sizeScale = 0.6 + 1.2 * rand;
+    let glowScale = 0.3 + 0.6 * rand;
+    let shimmer = 0.5 + 0.5 * sin(time * (1.0 + rand * 2.0) + rand * 40.0);
 
-    let dotOverlay = vec3<f32>(1.0, 0.85, 0.4) * dotMask * shimmer * lumaMask * depthMask * scanFalloff * scale;
-    let glow = dotOverlay * 0.5;
+    let dotOverlay = vec3<f32>(1.0, 0.85, 0.4) * dotMask * shimmer * lumaMask * depthMask * scanFalloff * sizeScale;
+    let glow = dotOverlay * glowScale;
 
     // Tilt-shift mask (focus on center vertical 40%)
     let tiltStrength = 10.0;
