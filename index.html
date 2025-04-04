@@ -1,52 +1,25 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>GSmooth Style Scroll</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebGPU Scanning + Liquid Effect</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+    }
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
 </head>
 <body>
-  <header>
-    <div class="logo">LOGO</div>
-    <nav>
-      <a href="#section1">Home</a>
-      <a href="#section2">About</a>
-      <a href="#section3">Products</a>
-      <a href="#section4">Contact</a>
-    </nav>
-  </header>
-
-  <main>
-    <section id="section1" class="section">
-      <div class="content">
-        <h1>Welcome</h1>
-        <p>Scroll down to explore</p>
-      </div>
-    </section>
-
-    <section id="section2" class="section">
-      <div class="content">
-        <h1>About Us</h1>
-        <p>Placeholder text for About section</p>
-      </div>
-    </section>
-
-    <section id="section3" class="section">
-      <div class="content">
-        <h1>Our Products</h1>
-        <p>Placeholder text for Wine section</p>
-      </div>
-    </section>
-
-    <section id="section4" class="section">
-      <div class="content">
-        <h1>Contact</h1>
-        <p>Placeholder text for Contact section</p>
-      </div>
-    </section>
-  </main>
-
-  <script src="script.js"></script>
+  <canvas id="webgpu-canvas"></canvas>
+  <script type="module" src="./main.js"></script>
 </body>
 </html>
