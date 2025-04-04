@@ -44,6 +44,10 @@ fn cellNoise(p: vec2<f32>) -> f32 {
   return fract(sin(hash) * 43758.5453);
 }
 
+fn hash(p: vec2<f32>) -> f32 {
+  return fract(sin(dot(p ,vec2<f32>(12.9898,78.233))) * 43758.5453);
+}
+
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let time = mouseData.w;
@@ -56,18 +60,19 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let dotMask = smoothstep(0.33, 0.31, gridDist);
 
     let luma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
-    let lumaMask = 1.0 - smoothstep(0.4, 0.65, luma); // adjusted for brighter tolerance
-    let depthMask = smoothstep(0.4, 0.1, depth); // slightly increased range for deeper areas
+    let lumaMask = 1.0 - smoothstep(0.9, 1.0, luma); // allow brighter: up to #FCFCFC
+    let depthMask = smoothstep(0.45, 0.1, depth);
 
-    // Circular scan falloff from mouse position
     let distToMouse = distance(uv, mouseData.xy);
     let scanFalloff = smoothstep(0.2, 0.0, distToMouse);
 
-    // Subtle shimmer
-    let shimmer = 0.7 + 0.3 * sin(time * 5.0 + gridUV.x * 0.3 + gridUV.y * 0.3);
+    let rand = hash(floor(gridUV));
+    let scale = 0.6 + 0.8 * rand;
+    let shimmer = 0.5 + 0.5 * sin(time * 3.0 + rand * 20.0);
 
-    let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * noise * shimmer * lumaMask * depthMask * scanFalloff;
-    finalColor = vec4<f32>(finalColor.rgb + dotOverlay, 1.0);
+    let dotOverlay = vec3<f32>(1.0, 0.85, 0.4) * dotMask * shimmer * lumaMask * depthMask * scanFalloff * scale;
+    let glow = dotOverlay * 0.5;
+    finalColor = vec4<f32>(finalColor.rgb + dotOverlay + glow, 1.0);
     return finalColor;
 }`;
 
@@ -92,7 +97,7 @@ async function initWebGPU() {
   context.configure({ device, format });
 
   const img = await loadTexture(device, './assets/image.png', canvas);
-  const depthMap = await loadTexture(device, './assets/depth.png');
+  const depthMap = await loadTexture(device, './assets/depth.jpg');
 
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
