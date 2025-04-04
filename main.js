@@ -1,4 +1,4 @@
-// Project: WebGPU Scanning Effect with Depth Map + Liquid Distortion
+// Project: WebGPU Scanning Effect with Depth Map + Liquid Distortion (Refined)
 // Requirements: An image and its depth map
 
 const vertexShaderWGSL = `
@@ -47,29 +47,31 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let dist = distance(uv, mousePos);
     let depth = textureSample(depthMap, sampler0, uv).r;
-    let depthOffset = (depth - 0.5) * 0.05;
+    let depthOffset = (depth - 0.5) * 0.01; // reduced from 0.05
 
     var scan = 0.0;
     if (isInside > 0.5) {
         let ringRadius = 0.2 + 0.03 * sin(time * 6.0);
-        let fade = smoothstep(ringRadius + 0.02, ringRadius - 0.02, dist);
-        scan = fade;
+        let fade = smoothstep(ringRadius + 0.015, ringRadius - 0.015, dist);
+        scan = fade * 0.5;
     }
 
     var distortedUV = uv;
-    if (isInside > 0.5) {
-        let wave = 0.01 * sin(50.0 * dist - time * 10.0);
+    if (isInside > 0.5 && dist < 0.3) {
+        let wave = 0.005 * sin(30.0 * dist - time * 5.0);
         let direction = normalize(uv - mousePos + vec2(0.001));
-        distortedUV += direction * wave * (0.2 - dist);
+        distortedUV += direction * wave * (0.3 - dist);
     }
 
     distortedUV += vec2(depthOffset);
 
     let color = textureSample(img, sampler0, distortedUV);
-    let finalColor = mix(color, vec4(1.0, 1.0, 1.0, 1.0), scan * 0.4);
+    let finalColor = mix(color, vec4(1.0, 1.0, 1.0, 1.0), scan);
 
     return finalColor;
 }`;
+
+// rest of the file remains unchanged...
 
 const canvas = document.querySelector('#webgpu-canvas');
 const mouse = { x: 0, y: 0, inside: false };
