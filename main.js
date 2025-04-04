@@ -1,5 +1,4 @@
-// Project: WebGPU Scanning Effect with Depth Map + Golden Dot Overlay (Circular Scan, No Liquid Distortion)
-// Requirements: A high-res PNG image (2464x1856) and its depth map
+// Project: WebGPU Depth Map + Liquid Distortion + Golden Dot Overlay (Dark Depth Areas Only)
 
 const vertexShaderWGSL = `
 struct VertexOutput {
@@ -45,35 +44,34 @@ fn cellNoise(p: vec2<f32>) -> f32 {
   return fract(sin(hash) * 43758.5453);
 }
 
+fn liquidDistort(uv: vec2<f32>, time: f32) -> vec2<f32> {
+    let wave1 = sin((uv.y + time) * 20.0) * 0.003;
+    let wave2 = cos((uv.x + time * 0.5) * 25.0) * 0.003;
+    return uv + vec2(wave1, wave2);
+}
+
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    let mousePos = mouseData.xy;
-    let isInside = mouseData.z;
     let time = mouseData.w;
+    let distortedUV = liquidDistort(uv, time);
 
     let depth = textureSample(depthMap, sampler0, uv).r;
     let depthOffset = (depth - 0.5) * 0.002;
-    let displacedUV = uv + vec2(depthOffset);
+    let displacedUV = distortedUV + vec2(depthOffset);
     var finalColor = textureSample(img, sampler0, displacedUV);
 
-    if (isInside > 0.5) {
-        let distToMouse = distance(uv, mousePos);
-        let circleFalloff = smoothstep(0.3, 0.0, distToMouse);
+    // Golden dots on dark depth map regions
+    let gridUV = uv * vec2(300.0);
+    let brightness = cellNoise(gridUV);
+    let gridDist = distance(fract(gridUV), vec2(0.5));
+    let dotMask = smoothstep(0.35, 0.33, gridDist);
 
-        let gridUV = uv * vec2(300.0); // smaller dots
-        let brightness = cellNoise(gridUV);
-        let gridDist = distance(fract(gridUV), vec2(0.5));
-        let dotMask = smoothstep(0.35, 0.33, gridDist);
+    let baseLuma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
+    let lumaMask = 1.0 - smoothstep(0.6, 0.9, baseLuma);
 
-        let scanFade = smoothstep(0.6, 0.0, abs(depth - fract(time * 0.25)));
-
-        // Avoid adding dots in bright areas
-        let baseLuma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
-        let lumaMask = 1.0 - smoothstep(0.6, 0.9, baseLuma);
-
-        let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * brightness * scanFade * circleFalloff * lumaMask;
-        finalColor = vec4<f32>(finalColor.rgb + dotOverlay, 1.0);
-    }
+    let depthMask = smoothstep(0.4, 0.2, depth);
+    let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * brightness * lumaMask * depthMask;
+    finalColor = vec4<f32>(finalColor.rgb + dotOverlay, 1.0);
 
     return finalColor;
 }`;
@@ -99,7 +97,7 @@ async function initWebGPU() {
   context.configure({ device, format });
 
   const img = await loadTexture(device, './assets/image.png', canvas);
-  const depthMap = await loadTexture(device, './assets/depth.png');
+  const depthMap = await loadTexture(device, './assets/depth.jpg');
 
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
