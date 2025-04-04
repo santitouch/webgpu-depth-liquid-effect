@@ -2,6 +2,7 @@
 // Requirements: An image and its depth map
 // Based on: https://github.com/d3adrabbit/ScanningEffectWithDepthMap
 
+
 import vertexShaderWGSL from './shaders/vertex.wgsl';
 import fragmentShaderWGSL from './shaders/fragment.wgsl';
 
