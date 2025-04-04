@@ -1,4 +1,4 @@
-// Project: WebGPU Depth Map + Golden Dot Scan Effect (No Image Distortion)
+// Project: WebGPU Depth Map + Golden Dot Scan Effect + Tilt-Shift Enhancement (No Image Distortion)
 
 const vertexShaderWGSL = `
 struct VertexOutput {
@@ -48,6 +48,11 @@ fn hash(p: vec2<f32>) -> f32 {
   return fract(sin(dot(p ,vec2<f32>(12.9898,78.233))) * 43758.5453);
 }
 
+fn blurWeight(y: f32, focus: f32, strength: f32) -> f32 {
+  let diff = abs(y - focus);
+  return smoothstep(0.0, 1.0, exp(-diff * strength));
+}
+
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let time = mouseData.w;
@@ -60,7 +65,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let dotMask = smoothstep(0.33, 0.31, gridDist);
 
     let luma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
-    let lumaMask = 1.0 - smoothstep(0.9, 1.0, luma); // allow brighter: up to #FCFCFC
+    let lumaMask = 1.0 - smoothstep(0.9, 1.0, luma);
     let depthMask = smoothstep(0.45, 0.1, depth);
 
     let distToMouse = distance(uv, mouseData.xy);
@@ -72,7 +77,13 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let dotOverlay = vec3<f32>(1.0, 0.85, 0.4) * dotMask * shimmer * lumaMask * depthMask * scanFalloff * scale;
     let glow = dotOverlay * 0.5;
-    finalColor = vec4<f32>(finalColor.rgb + dotOverlay + glow, 1.0);
+
+    // Tilt-shift mask (focus on center vertical 40%)
+    let tiltStrength = 10.0;
+    let tiltFocus = 0.5;
+    let blur = blurWeight(uv.y, tiltFocus, tiltStrength);
+
+    finalColor = vec4<f32>(mix(vec3<f32>(0.0), finalColor.rgb + dotOverlay + glow, blur), 1.0);
     return finalColor;
 }`;
 
@@ -94,7 +105,7 @@ async function initWebGPU() {
 
   const context = canvas.getContext('webgpu');
   const format = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({ device, format });
+  context.configure({ device, format, alphaMode: 'premultiplied' });
 
   const img = await loadTexture(device, './assets/image.png', canvas);
   const depthMap = await loadTexture(device, './assets/depth.png');
