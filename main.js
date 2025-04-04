@@ -56,8 +56,8 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let dotMask = smoothstep(0.33, 0.31, gridDist);
 
     let luma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
-    let lumaMask = 1.0 - smoothstep(0.5, 0.7, luma);
-    let depthMask = smoothstep(0.35, 0.15, depth);
+    let lumaMask = 1.0 - smoothstep(0.4, 0.65, luma); // adjusted for brighter tolerance
+    let depthMask = smoothstep(0.4, 0.1, depth); // slightly increased range for deeper areas
 
     // Circular scan falloff from mouse position
     let distToMouse = distance(uv, mouseData.xy);
@@ -92,7 +92,7 @@ async function initWebGPU() {
   context.configure({ device, format });
 
   const img = await loadTexture(device, './assets/image.png', canvas);
-  const depthMap = await loadTexture(device, './assets/depth.png');
+  const depthMap = await loadTexture(device, './assets/depth.jpg');
 
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
