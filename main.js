@@ -1,10 +1,75 @@
 // Project: WebGPU Scanning Effect with Depth Map + Liquid Distortion
 // Requirements: An image and its depth map
-// Based on: https://github.com/d3adrabbit/ScanningEffectWithDepthMap
 
+const vertexShaderWGSL = `
+struct VertexOutput {
+    @builtin(position) Position : vec4<f32>,
+    @location(0) uv : vec2<f32>,
+};
 
-import vertexShaderWGSL from './shaders/vertex.wgsl';
-import fragmentShaderWGSL from './shaders/fragment.wgsl';
+@vertex
+fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
+    var pos = array<vec2<f32>, 6>(
+        vec2(-1.0, -1.0),
+        vec2( 1.0, -1.0),
+        vec2(-1.0,  1.0),
+        vec2(-1.0,  1.0),
+        vec2( 1.0, -1.0),
+        vec2( 1.0,  1.0)
+    );
+
+    var uv = array<vec2<f32>, 6>(
+        vec2(0.0, 1.0),
+        vec2(1.0, 1.0),
+        vec2(0.0, 0.0),
+        vec2(0.0, 0.0),
+        vec2(1.0, 1.0),
+        vec2(1.0, 0.0)
+    );
+
+    var output : VertexOutput;
+    output.Position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
+    output.uv = uv[vertexIndex];
+    return output;
+}`;
+
+const fragmentShaderWGSL = `
+@group(0) @binding(0) var sampler0 : sampler;
+@group(0) @binding(1) var img : texture_2d<f32>;
+@group(0) @binding(2) var depthMap : texture_2d<f32>;
+@group(0) @binding(3) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
+
+@fragment
+fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+    let mousePos = mouseData.xy;
+    let isInside = mouseData.z;
+    let time = mouseData.w;
+
+    let dist = distance(uv, mousePos);
+    let depth = textureSample(depthMap, sampler0, uv).r;
+    let depthOffset = (depth - 0.5) * 0.05;
+
+    var scan = 0.0;
+    if (isInside > 0.5) {
+        let ringRadius = 0.2 + 0.03 * sin(time * 6.0);
+        let fade = smoothstep(ringRadius + 0.02, ringRadius - 0.02, dist);
+        scan = fade;
+    }
+
+    var distortedUV = uv;
+    if (isInside > 0.5) {
+        let wave = 0.01 * sin(50.0 * dist - time * 10.0);
+        let direction = normalize(uv - mousePos + vec2(0.001));
+        distortedUV += direction * wave * (0.2 - dist);
+    }
+
+    distortedUV += vec2(depthOffset);
+
+    let color = textureSample(img, sampler0, distortedUV);
+    let finalColor = mix(color, vec4(1.0, 1.0, 1.0, 1.0), scan * 0.4);
+
+    return finalColor;
+}`;
 
 const canvas = document.querySelector('#webgpu-canvas');
 const mouse = { x: 0, y: 0, inside: false };
@@ -25,8 +90,8 @@ async function initWebGPU() {
   const format = navigator.gpu.getPreferredCanvasFormat();
   context.configure({ device, format });
 
-  const img = await loadTexture(device, './assets/image.png');
-  const depthMap = await loadTexture(device, './assets/depth.png');
+  const img = await loadTexture(device, './assets/image.jpg');
+  const depthMap = await loadTexture(device, './assets/depth.jpg');
 
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
