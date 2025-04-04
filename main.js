@@ -1,4 +1,4 @@
-// Project: WebGPU Scanning Effect with Depth Map + Golden Dot Overlay (No Liquid Distortion)
+// Project: WebGPU Scanning Effect with Depth Map + Golden Dot Overlay (Circular Scan, No Liquid Distortion)
 // Requirements: A high-res PNG image (2464x1856) and its depth map
 
 const vertexShaderWGSL = `
@@ -41,7 +41,6 @@ const fragmentShaderWGSL = `
 
 fn cellNoise(p: vec2<f32>) -> f32 {
   let cell = floor(p);
-  let f = fract(p);
   let hash = dot(cell, vec2<f32>(127.1, 311.7));
   return fract(sin(hash) * 43758.5453);
 }
@@ -58,23 +57,28 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var finalColor = textureSample(img, sampler0, displacedUV);
 
     if (isInside > 0.5) {
-        let scanPos = fract(time * 0.25);
-        let scanStrength = smoothstep(0.02, 0.0, abs(depth - scanPos));
+        let distToMouse = distance(uv, mousePos);
+        let circleFalloff = smoothstep(0.3, 0.0, distToMouse);
 
-        let gridUV = uv * vec2(120.0);
+        let gridUV = uv * vec2(300.0); // smaller dots
         let brightness = cellNoise(gridUV);
         let gridDist = distance(fract(gridUV), vec2(0.5));
-        let dotMask = smoothstep(0.5, 0.45, gridDist);
+        let dotMask = smoothstep(0.35, 0.33, gridDist);
 
-        let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * brightness * scanStrength;
+        let scanFade = smoothstep(0.6, 0.0, abs(depth - fract(time * 0.25)));
+
+        // Avoid adding dots in bright areas
+        let baseLuma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
+        let lumaMask = 1.0 - smoothstep(0.6, 0.9, baseLuma);
+
+        let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * brightness * scanFade * circleFalloff * lumaMask;
         finalColor = vec4<f32>(finalColor.rgb + dotOverlay, 1.0);
     }
 
     return finalColor;
 }`;
 
-// Rest of the JS file remains the same...
-
+// JS remains unchanged
 const canvas = document.querySelector('#webgpu-canvas');
 const mouse = { x: 0, y: 0, inside: false };
 canvas.addEventListener('mousemove', (e) => {
