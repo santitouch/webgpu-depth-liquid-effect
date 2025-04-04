@@ -55,9 +55,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let depth = textureSample(depthMap, sampler0, uv).r;
     let depthOffset = (depth - 0.5) * 0.002;
     let displacedUV = uv + vec2(depthOffset);
-    let baseColor = textureSample(img, sampler0, displacedUV);
-
-    var finalColor = baseColor;
+    var finalColor = textureSample(img, sampler0, displacedUV);
 
     if (isInside > 0.5) {
         let scanPos = fract(time * 0.25);
@@ -68,8 +66,8 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         let gridDist = distance(fract(gridUV), vec2(0.5));
         let dotMask = smoothstep(0.5, 0.45, gridDist);
 
-        let dotOverlay = vec3(1.0, 0.8, 0.2) * dotMask * brightness * scanStrength;
-        finalColor.rgb += dotOverlay;
+        let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * brightness * scanStrength;
+        finalColor = vec4<f32>(finalColor.rgb + dotOverlay, 1.0);
     }
 
     return finalColor;
