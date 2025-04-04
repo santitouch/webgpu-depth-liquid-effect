@@ -50,7 +50,7 @@ fn hash(p: vec2<f32>) -> f32 {
 
 fn blurWeight(y: f32, focus: f32, strength: f32) -> f32 {
   let diff = abs(y - focus);
-  return smoothstep(0.0, 1.0, exp(-diff * strength));
+  return 1.0 - smoothstep(0.0, 0.4, diff);
 }
 
 @fragment
@@ -59,32 +59,31 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let depth = textureSample(depthMap, sampler0, uv).r;
     var finalColor = textureSample(img, sampler0, uv);
 
-    let gridUV = uv * vec2(250.0);
-    let noise = cellNoise(gridUV + vec2(time * 0.25));
+    let gridUV = uv * vec2(350.0); // Smaller dots
+    let noise = cellNoise(gridUV + vec2(time * 0.15));
     let gridDist = distance(fract(gridUV), vec2(0.5));
-    let dotMask = smoothstep(0.34, 0.30, gridDist);
+    let dotMask = smoothstep(0.25, 0.2, gridDist); // Smaller sharper dots
 
     let luma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
-    let lumaMask = 1.0 - smoothstep(0.99, 1.01, luma);
-    let depthMask = smoothstep(0.55, 0.1, depth);
+    let lumaMask = 1.0 - smoothstep(0.985, 1.01, luma); // include up to #FCFCFC
+    let depthMask = smoothstep(0.6, 0.05, depth); // Looser depth threshold
 
     let distToMouse = distance(uv, mouseData.xy);
-    let scanFalloff = smoothstep(0.35, 0.0, distToMouse);
+    let scanFalloff = smoothstep(0.4, 0.0, distToMouse);
 
     let rand = hash(floor(gridUV));
-    let sizeScale = 0.6 + 1.2 * rand;
-    let glowScale = 0.3 + 0.6 * rand;
-    let shimmer = 0.5 + 0.5 * sin(time * (1.0 + rand * 2.0) + rand * 40.0);
+    let sizeScale = 0.5 + 1.0 * rand;
+    let glowScale = 0.2 + 0.5 * rand;
+    let shimmer = 0.5 + 0.5 * sin(time * (0.5 + rand * 2.5) + rand * 50.0);
 
     let dotOverlay = vec3<f32>(1.0, 0.85, 0.4) * dotMask * shimmer * lumaMask * depthMask * scanFalloff * sizeScale;
     let glow = dotOverlay * glowScale;
 
-    // Tilt-shift mask (focus on center vertical 40%)
-    let tiltStrength = 10.0;
+    let tiltStrength = 3.5;
     let tiltFocus = 0.5;
-    let blur = blurWeight(uv.y, tiltFocus, tiltStrength);
+    let tilt = blurWeight(uv.y, tiltFocus, tiltStrength);
 
-    finalColor = vec4<f32>(mix(vec3<f32>(0.0), finalColor.rgb + dotOverlay + glow, blur), 1.0);
+    finalColor = vec4<f32>(mix(finalColor.rgb, finalColor.rgb + dotOverlay + glow, tilt), 1.0);
     return finalColor;
 }`;
 
