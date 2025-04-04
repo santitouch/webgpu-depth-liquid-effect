@@ -1,0 +1,13 @@
+{
+  "name": "webgpu-depth-liquid-effect",
+  "version": "1.0.0",
+  "description": "WebGPU image + depth map + mouse-triggered scanning & distortion",
+  "type": "module",
+  "scripts": {
+    "start": "live-server"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  }
+}
