@@ -1,4 +1,4 @@
-// Project: WebGPU Depth Map + Liquid Distortion + Golden Dot Overlay (Dark Depth Areas Only)
+// Project: WebGPU Depth Map + Golden Dot Scan Effect (No Image Distortion)
 
 const vertexShaderWGSL = `
 struct VertexOutput {
@@ -44,35 +44,29 @@ fn cellNoise(p: vec2<f32>) -> f32 {
   return fract(sin(hash) * 43758.5453);
 }
 
-fn liquidDistort(uv: vec2<f32>, time: f32) -> vec2<f32> {
-    let wave1 = sin((uv.y + time * 0.2) * 6.0) * 0.01;
-    let wave2 = cos((uv.x + time * 0.1) * 4.0) * 0.01;
-    return uv + vec2(wave1, wave2);
-}
-
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let time = mouseData.w;
-    let distortedUV = liquidDistort(uv, time);
-
     let depth = textureSample(depthMap, sampler0, uv).r;
-    let depthOffset = (depth - 0.5) * 0.002;
-    let displacedUV = distortedUV + vec2(depthOffset);
-    var finalColor = textureSample(img, sampler0, displacedUV);
+    var finalColor = textureSample(img, sampler0, uv);
 
-    // Golden dots on dark depth map regions with shimmer
-    let gridUV = uv * vec2(300.0);
-    let brightness = cellNoise(gridUV + vec2(time * 0.5, time * 0.5));
+    let gridUV = uv * vec2(250.0);
+    let noise = cellNoise(gridUV + vec2(time * 0.5));
     let gridDist = distance(fract(gridUV), vec2(0.5));
-    let dotMask = smoothstep(0.35, 0.33, gridDist);
+    let dotMask = smoothstep(0.33, 0.31, gridDist);
 
-    let baseLuma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
-    let lumaMask = 1.0 - smoothstep(0.55, 0.75, baseLuma);
+    let luma = dot(finalColor.rgb, vec3<f32>(0.299, 0.587, 0.114));
+    let lumaMask = 1.0 - smoothstep(0.5, 0.7, luma);
+    let depthMask = smoothstep(0.35, 0.15, depth);
 
-    let depthMask = smoothstep(0.4, 0.2, depth);
-    let shimmer = 0.9 + 0.1 * sin(time * 4.0 + gridUV.x * 0.5 + gridUV.y * 0.5);
-    let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * brightness * shimmer * lumaMask * depthMask;
+    // Circular scan falloff from mouse position
+    let distToMouse = distance(uv, mouseData.xy);
+    let scanFalloff = smoothstep(0.2, 0.0, distToMouse);
 
+    // Subtle shimmer
+    let shimmer = 0.7 + 0.3 * sin(time * 5.0 + gridUV.x * 0.3 + gridUV.y * 0.3);
+
+    let dotOverlay = vec3<f32>(1.0, 0.8, 0.2) * dotMask * noise * shimmer * lumaMask * depthMask * scanFalloff;
     finalColor = vec4<f32>(finalColor.rgb + dotOverlay, 1.0);
     return finalColor;
 }`;
@@ -98,7 +92,7 @@ async function initWebGPU() {
   context.configure({ device, format });
 
   const img = await loadTexture(device, './assets/image.png', canvas);
-  const depthMap = await loadTexture(device, './assets/depth.png');
+  const depthMap = await loadTexture(device, './assets/depth.jpg');
 
   const pipeline = device.createRenderPipeline({
     layout: 'auto',
