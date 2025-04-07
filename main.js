@@ -50,23 +50,19 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let distortedColor = textureSample(img, sampler0, uvDistorted);
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    var textEffect = vec3<f32>(0.0);
-    let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0); // scale in UV units based on image resolution
-    let localUV = (uv - mouse + texSize / 2.0) / texSize;
-
-    // Use uniform control flow to avoid WebGPU error
+    // Determine whether we are within the texture region (uniform control flow)
     var hauteColor = vec3<f32>(0.0);
-    var showTexture = false;
-    if (isHovering > 0.5) {
-        let inBounds = all(localUV >= vec2<f32>(0.0)) && all(localUV <= vec2<f32>(1.0));
-        showTexture = inBounds;
-    }
-    if (showTexture) {
-        hauteColor = textureSample(hauteTex, sampler0, localUV).rgb;
-    }
-    textEffect = hauteColor;
+    let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
+    let dx = abs(uv.x - mouse.x);
+    let dy = abs(uv.y - mouse.y);
+    let inRegion = select(false, true, dx < texSize.x * 0.5 && dy < texSize.y * 0.5);
 
-    return vec4<f32>(distortedColor.rgb + textEffect, 1.0);
+    if (isHovering > 0.5) {
+        let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
+        hauteColor = select(vec3<f32>(0.0), textureSample(hauteTex, sampler0, localUV).rgb, inRegion);
+    }
+
+    return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
 
 
