@@ -73,9 +73,9 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var lines = vec3<f32>(0.0);
     if (isHovering > 0.5) {
         let distToMouse = distance(distUV, mouse);
-        let fade = smoothstep(0.9, 1.0, depth);
+        let fade = smoothstep(0.1, 0.95, depth); // apply to brighter areas
         let mask = smoothstep(0.25, 0.0, distToMouse);
-        let gridUV = distUV * vec2(120.0, 6.0);
+        let gridUV = distUV * vec2(60.0, 3.0);
         let wave = sin(gridUV.x + time * 2.0);
         let lineStrength = smoothstep(0.48, 0.52, fract(gridUV.y + wave));
         let rand = hash(floor(gridUV));
