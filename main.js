@@ -59,7 +59,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     if (isHovering > 0.5) {
         let gridUV = uv * vec2(250.0);
         let rand = hash(floor(gridUV));
-        let dotSize = 0.03 + 0.03 * rand;
+        let dotSize = 0.3 + 0.3 * rand;
         let shimmer = 0.4 + 0.6 * sin(time * (1.0 + rand * 3.0));
         let distToMouse = distance(uv, mouse);
         let circularMask = smoothstep(0.25, 0.0, distToMouse);
