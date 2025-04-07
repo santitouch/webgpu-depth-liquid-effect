@@ -37,7 +37,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let mouse = mouseData.xy;
     let isHovering = mouseData.z;
 
-    let depth = textureSample(depthMap, sampler0, uv).r;
+    let baseColor = textureSample(img, sampler0, uv);
 
     // Ripple distortion effect
     var uvDistorted = uv;
@@ -47,23 +47,19 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         uvDistorted += normalize(uv - mouse) * ripple * smoothstep(0.15, 0.0, dist);
     }
 
-    let baseColor = textureSample(img, sampler0, uvDistorted);
+    let distortedColor = textureSample(img, sampler0, uvDistorted);
+    let depth = textureSample(depthMap, sampler0, uv).r;
 
-    // Compute localized repeat coordinates for 500x500 box centered on mouse
     var textEffect = vec3<f32>(0.0);
+    let hauteColor = textureSample(hauteTex, sampler0, fract((uv - mouse) * 5.0)); // shrink & repeat
     if (isHovering > 0.5 && depth > 0.5) {
-        let size = vec2<f32>(500.0, 500.0);
-        let scaleUV = (uv - mouse) * size;
-        let repeatUV = fract(scaleUV);
-        let hauteColor = textureSample(hauteTex, sampler0, repeatUV);
-
-        // Glow effect
         let glow = 0.5 + 0.5 * sin(time * 4.0);
         textEffect = hauteColor.rgb * glow;
     }
 
-    return vec4<f32>(baseColor.rgb + textEffect, 1.0);
+    return vec4<f32>(distortedColor.rgb + textEffect, 1.0);
 }`;
+
 
 const canvas = document.querySelector("canvas");
 function resizeCanvas() {
