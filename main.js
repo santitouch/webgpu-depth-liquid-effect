@@ -53,13 +53,20 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let isHovering = mouseData.z;
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    let baseColor = textureSample(img, sampler0, uv);
+    var distUV = uv;
+    var distortion = vec2<f32>(0.0);
+    if (isHovering > 0.5) {
+        distortion = vec2<f32>(0.01 * sin(uv.y * 10.0 + time), 0.01 * cos(uv.x * 10.0 + time));
+        distUV += distortion;
+    }
+
+    let baseColor = textureSample(img, sampler0, distUV);
 
     var dot = vec3<f32>(0.0);
     if (isHovering > 0.5) {
-        let gridUV = uv * vec2(250.0);
+        let gridUV = uv * vec2(80.0); // Fewer, larger dots
         let rand = hash(floor(gridUV));
-        let dotSize = 0.3 + 0.3 * rand;
+        let dotSize = 0.08 + 0.06 * rand; // Increase dot size
         let shimmer = 0.4 + 0.6 * sin(time * (1.0 + rand * 3.0));
         let distToMouse = distance(uv, mouse);
         let circularMask = smoothstep(0.25, 0.0, distToMouse);
@@ -74,6 +81,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     return vec4<f32>(baseColor.rgb + dot, 1.0);
 }`;
+
 
 // (Canvas logic, WebGPU pipeline setup, texture loading, etc. stay as-is from previous version)
 
