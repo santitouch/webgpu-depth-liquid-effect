@@ -57,16 +57,12 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     var hauteColor = vec3<f32>(0.0);
     let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
-
-    // Use discard-like blending instead of conditionally sampling hauteTex
     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
-    let sampleColor = textureSample(hauteTex, sampler0, localUV).rgb;
-    let regionMask = select(0.0, 1.0, f32(isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5));
-    hauteColor = sampleColor * regionMask;
+    let inRegionMask = isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5;
+    hauteColor = textureSample(hauteTex, sampler0, localUV).rgb * f32(inRegionMask);
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
-
 
 
 const canvas = document.querySelector("canvas");
