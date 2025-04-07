@@ -1,4 +1,4 @@
-// Project: WebGPU Depth Dot Projection + Subtle Liquid Distortion (on hover only)
+// WebGPU Depth Visual Effect with Wavy Lines and Responsive Canvas
 
 const vertexShaderWGSL = `
 struct VertexOutput {
@@ -18,12 +18,12 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     );
 
     var uv = array<vec2<f32>, 6>(
+        vec2(0.0, 0.0),
+        vec2(1.0, 0.0),
         vec2(0.0, 1.0),
-        vec2(1.0, 1.0),
-        vec2(0.0, 0.0),
-        vec2(0.0, 0.0),
-        vec2(1.0, 1.0),
-        vec2(1.0, 0.0)
+        vec2(0.0, 1.0),
+        vec2(1.0, 0.0),
+        vec2(1.0, 1.0)
     );
 
     var output : VertexOutput;
@@ -53,32 +53,31 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let isHovering = mouseData.z;
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    // Subtle distortion only around mouse, both image and depth
     var distUV = uv;
     if (isHovering > 0.5) {
         let distToMouse = distance(uv, mouse);
-        let ripple = sin(distToMouse * 80.0 - time * 8.0) * exp(-distToMouse * 10.0);
+        let ripple = sin(distToMouse * 60.0 - time * 8.0) * exp(-distToMouse * 10.0);
         let distortion = normalize(uv - mouse) * ripple * 0.01;
-        distUV += distortion;
+        distUV = uv + distortion;
     }
 
     let baseColor = textureSample(img, sampler0, distUV);
 
-    // Tilt-shift effect using depth
-    let tiltAmount = smoothstep(0.2, 0.8, depth);
-    let blur = tiltAmount * 0.008;
+    // Tilt-shift based on depth
+    let tilt = smoothstep(0.2, 0.8, depth);
+    let blur = tilt * 0.008;
     let blurColor = textureSample(img, sampler0, uv + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, uv - vec2<f32>(0.0, blur)) * 0.5;
-    let finalBase = mix(baseColor, blurColor, tiltAmount);
+    let finalBase = mix(baseColor, blurColor, tilt);
 
-    // Animated wavy lines on bright depth areas, appearing around mouse
+    // Animated wavy lines on bright areas
     var lines = vec3<f32>(0.0);
     if (isHovering > 0.5) {
         let distToMouse = distance(uv, mouse);
-        let fade = smoothstep(0.6, 1.0, depth);
+        let fade = smoothstep(1.0, 0.6, depth);
         let mask = smoothstep(0.25, 0.0, distToMouse);
-        let gridUV = uv * vec2(200.0, 200.0);
-        let wave = sin(gridUV.x + time * 2.0) * 0.5 + 0.5;
-        let lineStrength = smoothstep(0.48, 0.52, fract(gridUV.y + wave * 0.05));
+        let gridUV = uv * vec2(400.0, 400.0);
+        let wave = sin(gridUV.x * 2.0 + time * 5.0) * 0.3;
+        let lineStrength = smoothstep(0.49, 0.51, fract(gridUV.y + wave));
         let rand = hash(floor(gridUV));
         let color = palette(time + rand * 20.0);
         lines = color * lineStrength * fade * mask * 0.6;
@@ -87,119 +86,119 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     return vec4<f32>(finalBase.rgb + lines, 1.0);
 }`;
 
-// (Canvas logic, WebGPU pipeline setup, texture loading, etc. stay as-is from previous version)
-
 const canvas = document.getElementById('webgpu-canvas');
-const mouse = { x: 0.5, y: 0.5, inside: 0 };
+const mouseData = new Float32Array(4); // x, y, isHovering, time
 
-function resizeCanvasToDisplaySize(canvas) {
-  const dpr = window.devicePixelRatio || 1;
-  const width  = canvas.clientWidth  * dpr;
-  const height = canvas.clientHeight * dpr;
-  if (canvas.width !== width || canvas.height !== height) {
-    canvas.width  = width;
-    canvas.height = height;
-  }
+let imgBitmap, depthBitmap;
+const imageWidth = 2464;
+const imageHeight = 1856;
+
+async function loadImageBitmap(src) {
+  const res = await fetch(src);
+  const blob = await res.blob();
+  return await createImageBitmap(blob);
 }
 
-canvas.addEventListener('mousemove', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  mouse.x = (e.clientX - rect.left) / rect.width;
-  mouse.y = (e.clientY - rect.top) / rect.height;
-});
-canvas.addEventListener('mouseenter', () => mouse.inside = 1);
-canvas.addEventListener('mouseleave', () => mouse.inside = 0);
-
 async function init() {
-  if (!navigator.gpu) throw new Error("WebGPU not supported");
-
-  resizeCanvasToDisplaySize(canvas);
-
+  if (!navigator.gpu) throw new Error('WebGPU not supported.');
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
-  const context = canvas.getContext("webgpu");
+  const context = canvas.getContext('webgpu');
+
+  const scale = Math.min(window.innerWidth / imageWidth, window.innerHeight / imageHeight);
+  const pixelRatio = window.devicePixelRatio || 1;
+  canvas.width = imageWidth * scale * pixelRatio;
+  canvas.height = imageHeight * scale * pixelRatio;
+  canvas.style.width = `${imageWidth * scale}px`;
+  canvas.style.height = `${imageHeight * scale}px`;
 
   const format = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({ device, format, alphaMode: "opaque", size: [canvas.width, canvas.height] });
+  context.configure({ device, format, alphaMode: 'opaque' });
 
-  const imgTexture = await loadTexture(device, './assets/image2.jpg');
-  const depthTexture = await loadTexture(device, './assets/depth2.jpg');
-
-  const vertexModule = device.createShaderModule({ code: vertexShaderWGSL });
-  const fragmentModule = device.createShaderModule({ code: fragmentShaderWGSL });
-
-  const pipeline = device.createRenderPipeline({
-    layout: 'auto',
-    vertex: { module: vertexModule, entryPoint: 'main' },
-    fragment: { module: fragmentModule, entryPoint: 'main', targets: [{ format }] },
-    primitive: { topology: 'triangle-list' },
-  });
+  imgBitmap = await loadImageBitmap('./image.png');
+  depthBitmap = await loadImageBitmap('./depth.png');
 
   const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
 
-  const uniformBuffer = device.createBuffer({
-    size: 4 * Float32Array.BYTES_PER_ELEMENT,
+  const imgTex = device.createTexture({
+    size: [imgBitmap.width, imgBitmap.height],
+    format: 'rgba8unorm',
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  device.queue.copyExternalImageToTexture({ source: imgBitmap }, { texture: imgTex }, [imgBitmap.width, imgBitmap.height]);
+
+  const depthTex = device.createTexture({
+    size: [depthBitmap.width, depthBitmap.height],
+    format: 'rgba8unorm',
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  device.queue.copyExternalImageToTexture({ source: depthBitmap }, { texture: depthTex }, [depthBitmap.width, depthBitmap.height]);
+
+  const mouseBuffer = device.createBuffer({
+    size: mouseData.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const bindGroup = device.createBindGroup({
-    layout: pipeline.getBindGroupLayout(0),
+  const bindGroupLayout = device.createBindGroupLayout({
     entries: [
-      { binding: 0, resource: sampler },
-      { binding: 1, resource: imgTexture.createView() },
-      { binding: 2, resource: depthTexture.createView() },
-      { binding: 3, resource: { buffer: uniformBuffer } },
+      { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+      { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+      { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+      { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
     ],
   });
 
-  function frame() {
-    resizeCanvasToDisplaySize(canvas);
-    const time = performance.now() / 1000;
-    const mouseData = new Float32Array([mouse.x, mouse.y, mouse.inside, time]);
-    device.queue.writeBuffer(uniformBuffer, 0, mouseData.buffer);
+  const pipeline = device.createRenderPipeline({
+    layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
+    vertex: { module: device.createShaderModule({ code: vertexShaderWGSL }), entryPoint: 'main' },
+    fragment: {
+      module: device.createShaderModule({ code: fragmentShaderWGSL }),
+      entryPoint: 'main',
+      targets: [{ format }],
+    },
+    primitive: { topology: 'triangle-list' },
+  });
+
+  const bindGroup = device.createBindGroup({
+    layout: bindGroupLayout,
+    entries: [
+      { binding: 0, resource: sampler },
+      { binding: 1, resource: imgTex.createView() },
+      { binding: 2, resource: depthTex.createView() },
+      { binding: 3, resource: { buffer: mouseBuffer } },
+    ],
+  });
+
+  function updateMouse(ev) {
+    const rect = canvas.getBoundingClientRect();
+    mouseData[0] = (ev.clientX - rect.left) / rect.width;
+    mouseData[1] = (ev.clientY - rect.top) / rect.height;
+    mouseData[2] = 1.0;
+  }
+
+  canvas.addEventListener('mousemove', updateMouse);
+  canvas.addEventListener('mouseleave', () => (mouseData[2] = 0));
+
+  const render = (time) => {
+    mouseData[3] = time * 0.001;
+    device.queue.writeBuffer(mouseBuffer, 0, mouseData.buffer);
 
     const encoder = device.createCommandEncoder();
+    const textureView = context.getCurrentTexture().createView();
     const pass = encoder.beginRenderPass({
-      colorAttachments: [{
-        view: context.getCurrentTexture().createView(),
-        clearValue: { r: 0, g: 0, b: 0, a: 1 },
-        loadOp: 'clear',
-        storeOp: 'store',
-      }],
+      colorAttachments: [{ view: textureView, loadOp: 'clear', storeOp: 'store', clearValue: { r: 0, g: 0, b: 0, a: 1 } }],
     });
 
     pass.setPipeline(pipeline);
     pass.setBindGroup(0, bindGroup);
-    pass.draw(6, 1, 0, 0);
+    pass.draw(6);
     pass.end();
 
     device.queue.submit([encoder.finish()]);
-    requestAnimationFrame(frame);
-  }
+    requestAnimationFrame(render);
+  };
 
-  frame();
-}
-
-async function loadTexture(device, url) {
-  const img = new Image();
-  img.src = url;
-  img.crossOrigin = "anonymous";
-  await img.decode();
-  const bitmap = await createImageBitmap(img);
-
-  const texture = device.createTexture({
-    size: [bitmap.width, bitmap.height],
-    format: "rgba8unorm",
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
-  });
-
-  device.queue.copyExternalImageToTexture(
-    { source: bitmap },
-    { texture },
-    [bitmap.width, bitmap.height]
-  );
-
-  return texture;
+  requestAnimationFrame(render);
 }
 
 init();
