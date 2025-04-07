@@ -115,8 +115,8 @@ async function init() {
   const format = navigator.gpu.getPreferredCanvasFormat();
   context.configure({ device, format, alphaMode: 'opaque' });
 
-  imgBitmap = await loadImageBitmap('./image2.jpg');
-  depthBitmap = await loadImageBitmap('./depth2.jpg');
+  imgBitmap = await loadImageBitmap('https://github.com/santitouch/webgpu-depth-liquid-effect/assets/image2.jpg');
+  depthBitmap = await loadImageBitmap('https://github.com/santitouch/webgpu-depth-liquid-effect/assets/depth2.jpg');
 
   const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
 
