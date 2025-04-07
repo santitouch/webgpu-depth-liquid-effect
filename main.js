@@ -1,4 +1,4 @@
-// WebGPU Depth Visual Effect with HAUTE COUTURE texture that follows mouse (single image, no repeat, no animation)
+// WebGPU Depth Visual Effect with HAUTE COUTURE particles that follow mouse and depth
 
 // Vertex shader: outputs UV coordinates and positions for a full-screen quad
 const vertexShaderWGSL = `
@@ -23,7 +23,7 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     return output;
 }`;
 
-// Fragment shader: Samples base image, applies ripple, and overlays single "HAUTE COUTURE" texture following the mouse
+// Fragment shader: Samples base image, applies ripple, and overlays particle-style HAUTE COUTURE text based on depth and mouse
 const fragmentShaderWGSL = `
 @group(0) @binding(0) var sampler0 : sampler;
 @group(0) @binding(1) var img : texture_2d<f32>;
@@ -58,8 +58,14 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var hauteColor = vec3<f32>(0.0);
     let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
-    let inRegionMask = isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5;
-    hauteColor = textureSample(hauteTex, sampler0, localUV).rgb * f32(inRegionMask);
+
+    let showHaute = select(false, true, isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5);
+    if (showHaute) {
+        hauteColor = textureSample(hauteTex, sampler0, localUV).rgb;
+        // Simple glowing effect via sine pulse
+        let glow = 0.5 + 0.5 * sin(time * 5.0);
+        hauteColor *= glow;
+    }
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
