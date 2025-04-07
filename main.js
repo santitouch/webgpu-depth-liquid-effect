@@ -1,4 +1,4 @@
-// Project: WebGPU Depth Dot Projection + Liquid Distortion Only
+// Project: WebGPU Depth Dot Projection + Subtle Liquid Distortion (on hover only)
 
 const vertexShaderWGSL = `
 struct VertexOutput {
@@ -46,23 +46,27 @@ fn hash(p: vec2<f32>) -> f32 {
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let time = mouseData.w;
     let mouse = mouseData.xy;
+    let isHovering = mouseData.z;
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    let dist = distance(uv, mouse);
-    let ripple = 0.02 * sin(40.0 * dist - time * 4.0);
-    let offset = ripple * normalize(uv - mouse);
-    let displacedUV = uv + offset;
+    var displacedUV = uv;
+    if (isHovering > 0.5) {
+        let dist = distance(uv, mouse);
+        let ripple = 0.003 * sin(30.0 * dist - time * 2.0);
+        let offset = ripple * normalize(uv - mouse);
+        displacedUV = uv + offset;
+    }
 
     let baseColor = textureSample(img, sampler0, displacedUV);
 
-    let gridUV = uv * vec2(400.0);
+    let gridUV = uv * vec2(700.0);
     let rand = hash(floor(gridUV));
-    let dotSize = 0.1 + 0.25 * rand;
-    let shimmer = 0.5 + 0.5 * sin(time * (1.5 + rand * 3.5));
-    let dotMask = smoothstep(0.2, 0.15, distance(fract(gridUV), vec2(0.5))) * shimmer;
-    let depthDotMask = smoothstep(1.0, 0.05, depth);
+    let dotSize = 0.03 + 0.05 * rand;
+    let shimmer = 0.6 + 0.4 * sin(time * (2.0 + rand * 3.5));
+    let dotMask = smoothstep(dotSize * 1.5, dotSize, distance(fract(gridUV), vec2(0.5))) * shimmer;
+    let depthDotMask = smoothstep(1.0, 0.01, depth);
     let dotColor = vec3<f32>(1.0, 0.85, 0.4);
-    let glow = smoothstep(0.01, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.15;
+    let glow = smoothstep(dotSize * 1.3, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.12;
     let dot = (dotColor * dotMask + dotColor * glow) * depthDotMask;
 
     return vec4<f32>(baseColor.rgb + dot, 1.0);
