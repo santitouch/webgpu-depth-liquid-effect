@@ -31,10 +31,6 @@ const fragmentShaderWGSL = `
 @group(0) @binding(3) var hauteTex : texture_2d<f32>;
 @group(0) @binding(4) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
 
-fn inBounds(localUV: vec2<f32>) -> bool {
-    return all(localUV >= vec2<f32>(0.0)) && all(localUV <= vec2<f32>(1.0));
-}
-
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let time = mouseData.w;
@@ -59,16 +55,20 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let localUV = (uv - mouse + texSize / 2.0) / texSize;
 
     // Use uniform control flow to avoid WebGPU error
+    var hauteColor = vec3<f32>(0.0);
+    var showTexture = false;
     if (isHovering > 0.5) {
-        var hauteColor = vec3<f32>(0.0);
-        if (inBounds(localUV)) {
-            hauteColor = textureSample(hauteTex, sampler0, localUV).rgb;
-        }
-        textEffect = hauteColor;
+        let inBounds = all(localUV >= vec2<f32>(0.0)) && all(localUV <= vec2<f32>(1.0));
+        showTexture = inBounds;
     }
+    if (showTexture) {
+        hauteColor = textureSample(hauteTex, sampler0, localUV).rgb;
+    }
+    textEffect = hauteColor;
 
     return vec4<f32>(distortedColor.rgb + textEffect, 1.0);
 }`;
+
 
 const canvas = document.querySelector("canvas");
 function resizeCanvas() {
