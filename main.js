@@ -57,8 +57,8 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var distUV = uv;
     if (isHovering > 0.5) {
         let distToMouse = distance(uv, mouse);
-        let ripple = sin(distToMouse * 80.0 - time * 8.0) * exp(-distToMouse * 15.0);
-        let distortion = vec2<f32>(uv - mouse) * ripple * 0.05;
+        let ripple = sin(distToMouse * 80.0 - time * 8.0) * exp(-distToMouse * 10.0);
+        let distortion = normalize(uv - mouse) * ripple * 0.01;
         distUV += distortion;
     }
 
@@ -70,18 +70,18 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let blurColor = textureSample(img, sampler0, uv + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, uv - vec2<f32>(0.0, blur)) * 0.5;
     let finalBase = mix(baseColor, blurColor, tiltAmount);
 
-    // Replace dots with thin animated wavy lines on bright depth areas
+    // Animated wavy lines on bright depth areas, appearing around mouse
     var lines = vec3<f32>(0.0);
     if (isHovering > 0.5) {
-        let lineUV = uv * vec2(150.0, 1.0);
-        let rand = hash(floor(lineUV));
-        let wave = sin(lineUV.x * 10.0 + time * 3.0 + rand * 6.2831);
-        let stripe = smoothstep(0.49, 0.51, fract(lineUV.y + wave * 0.05));
-        let fade = smoothstep(0.6, 1.0, depth); // now on bright areas
         let distToMouse = distance(uv, mouse);
+        let fade = smoothstep(0.6, 1.0, depth);
         let mask = smoothstep(0.25, 0.0, distToMouse);
+        let gridUV = uv * vec2(200.0, 200.0);
+        let wave = sin(gridUV.x + time * 2.0) * 0.5 + 0.5;
+        let lineStrength = smoothstep(0.48, 0.52, fract(gridUV.y + wave * 0.05));
+        let rand = hash(floor(gridUV));
         let color = palette(time + rand * 20.0);
-        lines = color * stripe * fade * mask * 0.6;
+        lines = color * lineStrength * fade * mask * 0.6;
     }
 
     return vec4<f32>(finalBase.rgb + lines, 1.0);
