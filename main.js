@@ -43,7 +43,7 @@ fn hash(p: vec2<f32>) -> f32 {
 }
 
 fn palette(t: f32) -> vec3<f32> {
-  return mix(vec3<f32>(1.0, 0.0, 0.6), vec3<f32>(0.0, 0.0, 0.8), 0.5 + 0.5 * sin(t * 2.0));
+  return mix(vec3<f32>(1.0, 0.0, 0.6), vec3<f32>(0.0, 0.0, 0.8), 0.5 + 0.5 * sin(t * 3.0));
 }
 
 @fragment
@@ -53,27 +53,24 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let isHovering = mouseData.z;
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    var distUV = uv;
+    let baseColor = textureSample(img, sampler0, uv);
+
+    var dot = vec3<f32>(0.0);
     if (isHovering > 0.5) {
-        let offset = vec2<f32>(0.01 * sin(uv.y * 15.0 + time), 0.01 * cos(uv.x * 15.0 + time));
-        distUV += offset * 0.5;
+        let gridUV = uv * vec2(250.0);
+        let rand = hash(floor(gridUV));
+        let dotSize = 0.03 + 0.03 * rand;
+        let shimmer = 0.4 + 0.6 * sin(time * (1.0 + rand * 3.0));
+        let distToMouse = distance(uv, mouse);
+        let circularMask = smoothstep(0.25, 0.0, distToMouse);
+
+        let dotMask = smoothstep(dotSize * 1.6, dotSize, distance(fract(gridUV), vec2(0.5))) * shimmer;
+        let depthDotMask = smoothstep(0.99, 0.02, depth);
+        let color = palette(time + rand * 15.0);
+        let glow = smoothstep(dotSize * 1.2, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.15;
+
+        dot = (color * dotMask + color * glow) * depthDotMask * circularMask;
     }
-
-    let baseColor = textureSample(img, sampler0, distUV);
-
-    let gridUV = uv * vec2(400.0);
-    let rand = hash(floor(gridUV));
-    let dotSize = 0.01 + 0.02 * rand;
-    let shimmer = 0.5 + 0.5 * sin(time * (2.0 + rand * 2.5));
-    let dotMask = smoothstep(dotSize * 1.5, dotSize, distance(fract(gridUV), vec2(0.5))) * shimmer;
-    let depthDotMask = smoothstep(0.99, 0.01, depth);
-
-    let distToMouse = distance(uv, mouse);
-    let circularMask = smoothstep(0.3, 0.0, distToMouse);
-
-    let dotColor = palette(time + rand * 10.0);
-    let glow = smoothstep(dotSize * 1.3, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.08;
-    let dot = (dotColor * dotMask + dotColor * glow) * depthDotMask * circularMask;
 
     return vec4<f32>(baseColor.rgb + dot, 1.0);
 }`;
