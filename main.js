@@ -1,4 +1,4 @@
-// WebGPU Depth Visual Effect with Repeated Text, Mouse Distortion & Responsive Canvas
+// WebGPU Depth Visual Effect with Repeated "HAUTE COUTURE" Texture, Mouse Distortion & Responsive Canvas
 
 // Vertex shader: outputs UV coordinates and positions for a full-screen quad
 const vertexShaderWGSL = `
@@ -23,16 +23,13 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     return output;
 }`;
 
-// Fragment shader: applies repeated text instead of dots
+// Fragment shader: samples image, depth and haute-texture, applies ripple & pattern
 const fragmentShaderWGSL = `
 @group(0) @binding(0) var sampler0 : sampler;
 @group(0) @binding(1) var img : texture_2d<f32>;
 @group(0) @binding(2) var depthMap : texture_2d<f32>;
-@group(0) @binding(3) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
-
-fn hash(p: vec2<f32>) -> f32 {
-  return fract(sin(dot(p ,vec2<f32>(12.9898,78.233))) * 43758.5453);
-}
+@group(0) @binding(3) var hauteTex : texture_2d<f32>;
+@group(0) @binding(4) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
 
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
@@ -40,11 +37,9 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let mouse = mouseData.xy;
     let isHovering = mouseData.z;
 
-    let distUV = uv;
-    let base = textureSample(img, sampler0, distUV);
-    let depth = textureSample(depthMap, sampler0, distUV).r;
+    let depth = textureSample(depthMap, sampler0, uv).r;
 
-    // Subtle distortion ripple effect when hovering
+    // Ripple distortion effect when hovering
     var uvDistorted = uv;
     if (isHovering > 0.5) {
         let dist = distance(mouse, uv);
@@ -52,23 +47,21 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         uvDistorted += normalize(uv - mouse) * ripple * smoothstep(0.15, 0.0, dist);
     }
 
-    let distortedColor = textureSample(img, sampler0, uvDistorted);
+    let baseColor = textureSample(img, sampler0, uvDistorted);
 
-    // Repeated text pattern (emulated with shapes representing text pixels)
     var textEffect = vec3<f32>(0.0);
     if (isHovering > 0.5 && depth > 0.5) {
-        let gridUV = fract(uv * vec2<f32>(40.0, 5.0));
-        let textPixel = step(0.48, gridUV.x) * step(0.48, gridUV.y) * step(gridUV.x, 0.52) * step(gridUV.y, 0.52);
-        textEffect = mix(vec3<f32>(1.0, 0.84, 0.0), vec3<f32>(0.75, 0.75, 0.75), hash(uv + time)) * textPixel;
+        let repeatUV = fract(uv * vec2<f32>(4.0, 4.0)); // repeat texture
+        let hauteColor = textureSample(hauteTex, sampler0, repeatUV);
+        textEffect = hauteColor.rgb * 1.2;
     }
 
-    return vec4<f32>(distortedColor.rgb + textEffect, 1.0);
+    return vec4<f32>(baseColor.rgb + textEffect, 1.0);
 }`;
 
-// Responsive canvas setup to maintain image aspect ratio and clarity
 const canvas = document.querySelector("canvas");
 function resizeCanvas() {
-    const aspect = 2464 / 1856; // Maintain original image aspect ratio
+    const aspect = 2464 / 1856;
     const width = window.innerWidth;
     const height = window.innerHeight;
     const canvasAspect = width / height;
@@ -86,18 +79,15 @@ function resizeCanvas() {
     canvas.style.display = "block";
     canvas.style.margin = "0 auto";
 }
-
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-// === Image Loader ===
 async function loadImageBitmap(url) {
     const res = await fetch(url);
     const blob = await res.blob();
     return await createImageBitmap(blob);
 }
 
-// === WebGPU Init ===
 async function init() {
     if (!navigator.gpu) throw new Error("WebGPU not supported.");
 
@@ -106,15 +96,12 @@ async function init() {
     const context = canvas.getContext("webgpu");
     const format = navigator.gpu.getPreferredCanvasFormat();
 
-    context.configure({
-        device,
-        format,
-        alphaMode: "opaque"
-    });
+    context.configure({ device, format, alphaMode: "opaque" });
 
-    const [imageBitmap, depthBitmap] = await Promise.all([
+    const [imageBitmap, depthBitmap, hauteBitmap] = await Promise.all([
         loadImageBitmap("assets/image2.jpg"),
-        loadImageBitmap("assets/depth2.jpg")
+        loadImageBitmap("assets/depth2.jpg"),
+        loadImageBitmap("assets/haute-texture.png")
     ]);
 
     const imgTex = device.createTexture({
@@ -131,22 +118,23 @@ async function init() {
     });
     device.queue.copyExternalImageToTexture({ source: depthBitmap }, { texture: depthTex }, [depthBitmap.width, depthBitmap.height]);
 
-    const sampler = device.createSampler({
-        magFilter: "linear",
-        minFilter: "linear",
+    const hauteTex = device.createTexture({
+        size: [hauteBitmap.width, hauteBitmap.height],
+        format: "rgba8unorm",
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
     });
+    device.queue.copyExternalImageToTexture({ source: hauteBitmap }, { texture: hauteTex }, [hauteBitmap.width, hauteBitmap.height]);
 
-    const mouseBuffer = device.createBuffer({
-        size: 4 * 4,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
+    const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
+    const mouseBuffer = device.createBuffer({ size: 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
     const bindGroupLayout = device.createBindGroupLayout({
         entries: [
             { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
             { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: {} },
             { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {} },
-            { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
+            { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+            { binding: 4, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
         ],
     });
 
@@ -170,8 +158,9 @@ async function init() {
             { binding: 0, resource: sampler },
             { binding: 1, resource: imgTex.createView() },
             { binding: 2, resource: depthTex.createView() },
-            { binding: 3, resource: { buffer: mouseBuffer } },
-        ],
+            { binding: 3, resource: hauteTex.createView() },
+            { binding: 4, resource: { buffer: mouseBuffer } },
+        ]
     });
 
     let mouse = [0, 0, 0];
@@ -195,7 +184,7 @@ async function init() {
                 clearValue: { r: 0, g: 0, b: 0, a: 1 },
                 loadOp: "clear",
                 storeOp: "store",
-            }],
+            }]
         });
 
         pass.setPipeline(pipeline);
