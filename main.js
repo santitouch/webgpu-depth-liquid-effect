@@ -62,9 +62,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
 
     var hauteColor = vec3<f32>(0.0);
-    var showHaute = (hauteTex != null);
 
-    // Guard texture sampling with uniform condition
     if (isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5) {
         let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
         if (hauteSample > 0.5) {
