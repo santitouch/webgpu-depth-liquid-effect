@@ -38,12 +38,6 @@ const fragmentShaderWGSL = `
 @group(0) @binding(2) var depthMap : texture_2d<f32>;
 @group(0) @binding(3) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
 
-fn cellNoise(p: vec2<f32>) -> f32 {
-  let cell = floor(p);
-  let hash = dot(cell, vec2<f32>(127.1, 311.7));
-  return fract(sin(hash) * 43758.5453);
-}
-
 fn hash(p: vec2<f32>) -> f32 {
   return fract(sin(dot(p ,vec2<f32>(12.9898,78.233))) * 43758.5453);
 }
@@ -58,23 +52,24 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let gridUV = uv * vec2(400.0);
     let rand = hash(floor(gridUV));
-    let dotSize = 0.25 + 0.75 * rand;
-    let shimmer = 0.6 + 0.4 * sin(time * (1.5 + rand * 2.5));
+    let dotSize = 0.15 + 0.4 * rand;
+    let shimmer = 0.5 + 0.5 * sin(time * (1.5 + rand * 3.5));
     let dotMask = smoothstep(0.2, 0.15, distance(fract(gridUV), vec2(0.5))) * shimmer;
     let depthDotMask = smoothstep(1.0, 0.0, depth);
-    let dot = vec3<f32>(1.0, 0.85, 0.4) * dotMask * depthDotMask;
+    let dotColor = vec3<f32>(1.0, 0.85, 0.4);
+    let glow = smoothstep(0.01, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.25;
+    let dot = (dotColor * dotMask + dotColor * glow) * depthDotMask;
 
     let lensRadius = 0.25;
     let lensDist = distance(uv, mouse);
     let inLens = smoothstep(lensRadius, lensRadius - 0.1, lensDist);
     let zoomUV = mix(uv, mouse + (uv - mouse) * 0.9, inLens);
     let zoomedColor = textureSample(img, sampler0, zoomUV);
-
     let ring = smoothstep(0.05, 0.045, abs(lensDist - 0.15));
     let lensGlow = vec3<f32>(1.0, 1.0, 1.0) * ring * inLens * 0.1;
 
-    let final = mix(baseColor.rgb, zoomedColor.rgb, inLens);
-    return vec4<f32>(final + dot + lensGlow, 1.0);
+    let composed = mix(baseColor.rgb, zoomedColor.rgb, inLens);
+    return vec4<f32>(composed + dot + lensGlow, 1.0);
 }`;
 
 const canvas = document.getElementById('webgpu-canvas');
@@ -164,7 +159,7 @@ async function loadTexture(device, url) {
   const texture = device.createTexture({
     size: [bitmap.width, bitmap.height],
     format: "rgba8unorm",
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
   device.queue.copyExternalImageToTexture(
