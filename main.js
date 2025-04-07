@@ -50,16 +50,18 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let distortedColor = textureSample(img, sampler0, uvDistorted);
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    // Determine whether we are within the texture region (uniform control flow)
+    // Prepare for haute texture overlay
     var hauteColor = vec3<f32>(0.0);
     let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
     let dx = abs(uv.x - mouse.x);
     let dy = abs(uv.y - mouse.y);
-    let inRegion = select(false, true, dx < texSize.x * 0.5 && dy < texSize.y * 0.5);
+    let inRegion = dx < texSize.x * 0.5 && dy < texSize.y * 0.5;
+    let depthValid = depth > 0.5;
 
-    if (isHovering > 0.5) {
+    // Perform texture sampling only when within region and depth is valid (uniform flow)
+    if (isHovering > 0.5 && inRegion && depthValid) {
         let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
-        hauteColor = select(vec3<f32>(0.0), textureSample(hauteTex, sampler0, localUV).rgb, inRegion);
+        hauteColor = textureSample(hauteTex, sampler0, localUV).rgb;
     }
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
