@@ -1,4 +1,4 @@
-// WebGPU Depth Visual Effect with Shimmering Dots, Mouse Distortion & Responsive Canvas
+// WebGPU Depth Visual Effect with Repeated Text, Mouse Distortion & Responsive Canvas
 
 // Vertex shader: outputs UV coordinates and positions for a full-screen quad
 const vertexShaderWGSL = `
@@ -23,7 +23,7 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     return output;
 }`;
 
-// Fragment shader: applies shimmering dots based on mouse, adds subtle distortion from mouse interaction
+// Fragment shader: applies repeated text instead of dots
 const fragmentShaderWGSL = `
 @group(0) @binding(0) var sampler0 : sampler;
 @group(0) @binding(1) var img : texture_2d<f32>;
@@ -32,12 +32,6 @@ const fragmentShaderWGSL = `
 
 fn hash(p: vec2<f32>) -> f32 {
   return fract(sin(dot(p ,vec2<f32>(12.9898,78.233))) * 43758.5453);
-}
-
-fn palette(t: f32) -> vec3<f32> {
-  let pink = vec3<f32>(1.0, 0.0, 0.5);
-  let navy = vec3<f32>(0.1, 0.1, 0.5);
-  return mix(pink, navy, 0.5 + 0.5 * sin(t * 2.0));
 }
 
 @fragment
@@ -60,23 +54,15 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let distortedColor = textureSample(img, sampler0, uvDistorted);
 
-    // Shimmering dots on bright areas
-    var dots = vec3<f32>(0.0);
+    // Repeated text pattern (emulated with shapes representing text pixels)
+    var textEffect = vec3<f32>(0.0);
     if (isHovering > 0.5 && depth > 0.5) {
-        let distToMouse = distance(uv, mouse);
-        let mask = smoothstep(0.25, 0.0, distToMouse);
-        let dotSize = 100.0;
-        let gridUV = uv * dotSize;
-        let cell = floor(gridUV);
-        let jitter = hash(cell + vec2<f32>(time * 0.2, time * 0.3));
-        let offset = fract(gridUV) - 0.5 + jitter * 0.3;
-        let radius = length(offset);
-        let dot = smoothstep(0.1, 0.02, radius);
-        let color = palette(time + hash(cell));
-        dots = color * dot * mask;
+        let gridUV = fract(uv * vec2<f32>(40.0, 5.0));
+        let textPixel = step(0.48, gridUV.x) * step(0.48, gridUV.y) * step(gridUV.x, 0.52) * step(gridUV.y, 0.52);
+        textEffect = mix(vec3<f32>(1.0, 0.84, 0.0), vec3<f32>(0.75, 0.75, 0.75), hash(uv + time)) * textPixel;
     }
 
-    return vec4<f32>(distortedColor.rgb + dots, 1.0);
+    return vec4<f32>(distortedColor.rgb + textEffect, 1.0);
 }`;
 
 // Responsive canvas setup to maintain image aspect ratio and clarity
@@ -104,7 +90,6 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-
 // === Image Loader ===
 async function loadImageBitmap(url) {
     const res = await fetch(url);
@@ -127,7 +112,6 @@ async function init() {
         alphaMode: "opaque"
     });
 
-    // Load image & depth map
     const [imageBitmap, depthBitmap] = await Promise.all([
         loadImageBitmap("assets/image2.jpg"),
         loadImageBitmap("assets/depth2.jpg")
@@ -190,7 +174,6 @@ async function init() {
         ],
     });
 
-    // === Mouse tracking ===
     let mouse = [0, 0, 0];
     canvas.addEventListener("mouseenter", () => (mouse[2] = 1));
     canvas.addEventListener("mouseleave", () => (mouse[2] = 0));
@@ -200,7 +183,6 @@ async function init() {
         mouse[1] = (e.clientY - rect.top) / rect.height;
     });
 
-    // === Frame loop ===
     function frame(time) {
         const seconds = time * 0.001;
         device.queue.writeBuffer(mouseBuffer, 0, new Float32Array([mouse[0], mouse[1], mouse[2], seconds]));
