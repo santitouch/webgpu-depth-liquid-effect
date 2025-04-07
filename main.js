@@ -61,15 +61,11 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let texSize = baseSize * scale;
     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
 
-    var hauteColor = vec3<f32>(0.0);
-
-    if (isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5) {
-        let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
-        if (hauteSample > 0.5) {
-            let glow = mix(1.0, 2.5 + 0.5 * sin(time * 10.0), clickState);
-            hauteColor = vec3<f32>(1.0) * glow;
-        }
-    }
+    let inRegionMask = f32(isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5);
+    let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
+    let hauteMask = step(0.5, hauteSample);
+    let glow = mix(1.0, 2.5 + 0.5 * sin(time * 10.0), clickState);
+    let hauteColor = vec3<f32>(1.0) * glow * inRegionMask * hauteMask;
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
