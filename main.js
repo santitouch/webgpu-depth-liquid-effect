@@ -31,55 +31,54 @@ const fragmentShaderWGSL = `
 
   fn circleMask(uv: vec2f, center: vec2f, radius: f32) -> f32 {
     let dist = distance(uv, center);
-    return smoothstep(radius, radius - 0.2, dist);
+    return smoothstep(radius, radius - 0.3, dist);
   }
 
   @fragment
   fn main(@builtin(position) coord: vec4f) -> @location(0) vec4f {
     let uv = coord.xy / vec2f(textureDimensions(img));
-    let base = textureSample(img, sampler0, uv);
     let depthVal = textureSample(depth, sampler0, uv).r;
 
-    // Subtle distortion ripple effect only on hover
+    // Ripple effect only on hover
     var ripple = vec2f(0.0);
     if (uniforms.mouseActive > 0.0) {
       let d = distance(uv, uniforms.mouse);
-      let rippleStrength = 0.0025;
-      ripple = normalize(uv - uniforms.mouse) * sin((d - uniforms.time) * 10.0) * rippleStrength / (1.0 + d * 40.0);
+      let rippleStrength = 0.003;
+      ripple = normalize(uv - uniforms.mouse) * sin((d - uniforms.time) * 8.0) * rippleStrength / (1.0 + d * 40.0);
     }
-
     let displacedUV = clamp(uv + ripple, vec2f(0.0), vec2f(1.0));
     let color = textureSample(img, sampler0, displacedUV);
 
-    // Particle shimmer effect on bright areas
+    // Particles shimmer on bright areas
     let brightness = textureSample(depth, sampler0, uv).r;
     let mask = circleMask(uv, uniforms.mouse, 0.3);
     let showParticles = step(0.6, brightness) * mask * uniforms.mouseActive;
 
-    let sparkle = rand(uv * uniforms.time * 3.0);
-    let pulse = abs(sin(uniforms.time * 3.0 + sparkle * 10.0));
+    let sparkle = rand(uv * uniforms.time * 2.0);
+    let pulse = abs(sin(uniforms.time * 2.0 + sparkle * 6.0));
 
-    let shimmer = mix(vec3f(1.0, 0.8, 0.2), vec3f(0.8, 0.8, 1.0), sparkle);
-    let shimmerAlpha = pulse * 0.4 * showParticles;
+    let shimmer = mix(vec3f(1.0, 0.84, 0.0), vec3f(0.8, 0.8, 0.8), sparkle); // Gold to silver
+    let shimmerAlpha = pulse * 0.5 * showParticles;
 
     return vec4f(color.rgb + shimmer * shimmerAlpha, 1.0);
   }
 `;
 
-// Load images as ImageBitmap
+// Load images
 async function loadImageBitmap(url) {
   const res = await fetch(url);
   const blob = await res.blob();
   return await createImageBitmap(blob);
 }
 
-// Initialize everything
+// Initialize WebGPU scene
 async function init() {
   const canvas = document.querySelector("canvas");
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const context = canvas.getContext("webgpu");
 
+  // Handle responsive resize
   function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
@@ -94,6 +93,7 @@ async function init() {
   window.addEventListener("resize", resizeCanvas);
   resizeCanvas();
 
+  // Load textures
   const [imageBitmap, depthBitmap] = await Promise.all([
     loadImageBitmap("assets/image2.jpg"),
     loadImageBitmap("assets/depth2.jpg")
@@ -116,6 +116,7 @@ async function init() {
   const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
   const mouseBuffer = device.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
+  // Bind and pipeline
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [
       { binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
@@ -149,6 +150,7 @@ async function init() {
     ],
   });
 
+  // Mouse interaction
   let mouse = [0, 0, 0];
   canvas.addEventListener("mouseenter", () => (mouse[2] = 1));
   canvas.addEventListener("mouseleave", () => (mouse[2] = 0));
@@ -158,6 +160,7 @@ async function init() {
     mouse[1] = (e.clientY - rect.top) / rect.height;
   });
 
+  // Animation loop
   function frame(time) {
     const seconds = time * 0.001;
     device.queue.writeBuffer(mouseBuffer, 0, new Float32Array([mouse[0], mouse[1], mouse[2], seconds]));
@@ -178,12 +181,11 @@ async function init() {
     pass.draw(6);
     pass.end();
     device.queue.submit([encoder.finish()]);
-
     requestAnimationFrame(frame);
   }
 
   requestAnimationFrame(frame);
 }
 
-// Start the app
+// Start
 init();
