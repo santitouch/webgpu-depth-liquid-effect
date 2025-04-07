@@ -52,7 +52,8 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let time = mouseData.w;
     let mouse = mouseData.xy;
     let isHovering = mouseData.z;
-    let depth = textureSample(depthMap, sampler0, uv).r;
+    let baseColor = textureSample(img, sampler0, distUV);
+    let depth = textureSample(depthMap, sampler0, distUV).r;
 
     var distUV = uv;
     if (isHovering > 0.5) {
@@ -67,8 +68,9 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     // Tilt-shift based on depth
     let tilt = smoothstep(0.2, 0.8, depth);
     let blur = tilt * 0.008;
-    let blurColor = textureSample(img, sampler0, uv + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, uv - vec2<f32>(0.0, blur)) * 0.5;
+    let blurColor = textureSample(img, sampler0, distUV + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, distUV - vec2<f32>(0.0, blur)) * 0.5;
     let finalBase = mix(baseColor, blurColor, tilt);
+    
 
     // Animated wavy lines on bright areas
     var lines = vec3<f32>(0.0);
