@@ -1,5 +1,6 @@
-// WebGPU Depth Visual Effect with Shimmering Dots and Responsive Canvas
+// WebGPU Depth Visual Effect with Shimmering Dots, Mouse Distortion & Responsive Canvas
 
+// Vertex shader: outputs UV coordinates and positions for a full-screen quad
 const vertexShaderWGSL = `
 struct VertexOutput {
     @builtin(position) Position : vec4<f32>,
@@ -9,29 +10,20 @@ struct VertexOutput {
 @vertex
 fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     var pos = array<vec2<f32>, 6>(
-        vec2(-1.0, -1.0),
-        vec2( 1.0, -1.0),
-        vec2(-1.0,  1.0),
-        vec2(-1.0,  1.0),
-        vec2( 1.0, -1.0),
-        vec2( 1.0,  1.0)
+        vec2(-1.0, -1.0), vec2( 1.0, -1.0), vec2(-1.0,  1.0),
+        vec2(-1.0,  1.0), vec2( 1.0, -1.0), vec2( 1.0,  1.0)
     );
-
     var uv = array<vec2<f32>, 6>(
-        vec2(0.0, 1.0),
-        vec2(1.0, 1.0),
-        vec2(0.0, 0.0),
-        vec2(0.0, 0.0),
-        vec2(1.0, 1.0),
-        vec2(1.0, 0.0)
+        vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(0.0, 0.0),
+        vec2(0.0, 0.0), vec2(1.0, 1.0), vec2(1.0, 0.0)
     );
-
     var output : VertexOutput;
     output.Position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
     output.uv = uv[vertexIndex];
     return output;
 }`;
 
+// Fragment shader: applies shimmering dots based on mouse, adds subtle distortion from mouse interaction
 const fragmentShaderWGSL = `
 @group(0) @binding(0) var sampler0 : sampler;
 @group(0) @binding(1) var img : texture_2d<f32>;
@@ -58,29 +50,39 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let base = textureSample(img, sampler0, distUV);
     let depth = textureSample(depthMap, sampler0, distUV).r;
 
-    var dots = vec3<f32>(0.0);
+    // Subtle distortion ripple effect when hovering
+    var uvDistorted = uv;
     if (isHovering > 0.5) {
-        let distToMouse = distance(uv, mouse);
-        let fade = smoothstep(0.0, 1.0, depth); // brighter areas
-        let mask = smoothstep(0.2, 0.0, distToMouse);
-        let dotSize = 400.0;
-        let gridUV = uv * dotSize;
-        let cell = floor(gridUV);
-        let jitter = hash(cell + vec2<f32>(time * 0.1, time * 0.2));
-        let offset = fract(gridUV) - 0.5 + jitter * 0.2;
-        let radius = length(offset);
-        let dot = smoothstep(0.1, 0.01, radius);
-        let color = palette(time + hash(cell));
-        dots = color * dot * mask * fade;
+        let dist = distance(mouse, uv);
+        let ripple = 0.005 * sin(40.0 * dist - time * 4.0);
+        uvDistorted += normalize(uv - mouse) * ripple * smoothstep(0.15, 0.0, dist);
     }
 
-    return vec4<f32>(base.rgb + dots, 1.0);
+    let distortedColor = textureSample(img, sampler0, uvDistorted);
+
+    // Shimmering dots on bright areas
+    var dots = vec3<f32>(0.0);
+    if (isHovering > 0.5 && depth > 0.5) {
+        let distToMouse = distance(uv, mouse);
+        let mask = smoothstep(0.25, 0.0, distToMouse);
+        let dotSize = 100.0;
+        let gridUV = uv * dotSize;
+        let cell = floor(gridUV);
+        let jitter = hash(cell + vec2<f32>(time * 0.2, time * 0.3));
+        let offset = fract(gridUV) - 0.5 + jitter * 0.3;
+        let radius = length(offset);
+        let dot = smoothstep(0.1, 0.02, radius);
+        let color = palette(time + hash(cell));
+        dots = color * dot * mask;
+    }
+
+    return vec4<f32>(distortedColor.rgb + dots, 1.0);
 }`;
 
-// Responsive canvas setup
+// Responsive canvas setup to maintain image aspect ratio and clarity
 const canvas = document.querySelector("canvas");
 function resizeCanvas() {
-    const aspect = 2464 / 1856;
+    const aspect = 2464 / 1856; // Maintain original image aspect ratio
     const width = window.innerWidth;
     const height = window.innerHeight;
     const canvasAspect = width / height;
@@ -96,10 +98,11 @@ function resizeCanvas() {
     canvas.style.width = "100vw";
     canvas.style.height = "100vh";
     canvas.style.display = "block";
+    canvas.style.margin = "0 auto";
 }
+
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
-
 
 
 // === Image Loader ===
