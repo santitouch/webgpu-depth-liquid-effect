@@ -64,16 +64,12 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
     let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
 
-    // Particle mask and animation
-    if (hauteSample > 0.5) {
-        let particleOffset = 0.005 * vec2<f32>(
-            sin(time * 10.0 + uv.x * 100.0),
-            cos(time * 10.0 + uv.y * 100.0)
-        );
-        if (inRegion(uv, mouse, texSize) && isHovering > 0.5 && depth > 0.5) {
-            let glow = 0.6 + 0.4 * sin(dot(uv, vec2<f32>(100.0, 100.0)) + time * 10.0);
-            hauteColor = vec3<f32>(1.0, 1.0, 1.0) * glow;
-        }
+    // Particle effect instead of texture fade
+    if (hauteSample > 0.5 && inRegion(uv, mouse, texSize) && isHovering > 0.5 && depth > 0.5) {
+        let particle = random(floor(uv * 500.0)) * 0.5 + 0.5;
+        let animate = 0.3 * sin(time * 10.0 + uv.x * 100.0 + uv.y * 100.0);
+        let brightness = 0.8 + animate;
+        hauteColor = vec3<f32>(1.0) * brightness * particle;
     }
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
