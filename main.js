@@ -109,8 +109,8 @@ window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
 const [imageBitmap, depthBitmap] = await Promise.all([
-    loadImageBitmap(".assets/image2.jpg"),
-    loadImageBitmap(".assets/depth2.jpg")
+    loadImageBitmap("assets/image2.jpg"),
+    loadImageBitmap("assets/depth2.jpg")
 ]);
 
 const imgTex = device.createTexture({
