@@ -18,14 +18,13 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     );
 
     var uv = array<vec2<f32>, 6>(
-    vec2(0.0, 1.0),
-    vec2(1.0, 1.0),
-    vec2(0.0, 0.0),
-    vec2(0.0, 0.0),
-    vec2(1.0, 1.0),
-    vec2(1.0, 0.0)
-);
-
+        vec2(0.0, 1.0),
+        vec2(1.0, 1.0),
+        vec2(0.0, 0.0),
+        vec2(0.0, 0.0),
+        vec2(1.0, 1.0),
+        vec2(1.0, 0.0)
+    );
 
     var output : VertexOutput;
     output.Position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
@@ -52,8 +51,6 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let time = mouseData.w;
     let mouse = mouseData.xy;
     let isHovering = mouseData.z;
-    let baseColor = textureSample(img, sampler0, distUV);
-    let depth = textureSample(depthMap, sampler0, distUV).r;
 
     var distUV = uv;
     if (isHovering > 0.5) {
@@ -63,22 +60,20 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         distUV = uv + distortion;
     }
 
-    let baseColor = textureSample(img, sampler0, distUV);
+    let colorSample = textureSample(img, sampler0, distUV);
+    let depth = textureSample(depthMap, sampler0, distUV).r;
 
-    // Tilt-shift based on depth
     let tilt = smoothstep(0.2, 0.8, depth);
     let blur = tilt * 0.008;
     let blurColor = textureSample(img, sampler0, distUV + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, distUV - vec2<f32>(0.0, blur)) * 0.5;
-    let finalBase = mix(baseColor, blurColor, tilt);
-    
+    let baseColor = mix(colorSample, blurColor, tilt);
 
-    // Animated wavy lines on bright areas
     var lines = vec3<f32>(0.0);
     if (isHovering > 0.5) {
-        let distToMouse = distance(uv, mouse);
-        let fade = smoothstep(1.0, 0.6, depth);
+        let distToMouse = distance(distUV, mouse);
+        let fade = smoothstep(0.4, 1.0, depth);
         let mask = smoothstep(0.25, 0.0, distToMouse);
-        let gridUV = uv * vec2(400.0, 400.0);
+        let gridUV = distUV * vec2(400.0, 400.0);
         let wave = sin(gridUV.x * 2.0 + time * 5.0) * 0.3;
         let lineStrength = smoothstep(0.49, 0.51, fract(gridUV.y + wave));
         let rand = hash(floor(gridUV));
@@ -86,8 +81,11 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         lines = color * lineStrength * fade * mask * 0.6;
     }
 
-    return vec4<f32>(finalBase.rgb + lines, 1.0);
+    return vec4<f32>(baseColor.rgb + lines, 1.0);
 }`;
+
+// The rest of main.js remains unchanged
+
 
 const canvas = document.getElementById('webgpu-canvas');
 const mouseData = new Float32Array(4); // x, y, isHovering, time
