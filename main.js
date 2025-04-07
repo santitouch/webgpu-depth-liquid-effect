@@ -49,24 +49,16 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let isHovering = mouseData.z;
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    var displacedUV = uv;
-    if (isHovering > 0.5) {
-        let dist = distance(uv, mouse);
-        let ripple = 0.003 * sin(30.0 * dist - time * 2.0);
-        let offset = ripple * normalize(uv - mouse);
-        displacedUV = uv + offset;
-    }
-
-    let baseColor = textureSample(img, sampler0, displacedUV);
+    let baseColor = textureSample(img, sampler0, uv);
 
     let gridUV = uv * vec2(700.0);
     let rand = hash(floor(gridUV));
-    let dotSize = 0.03 + 0.05 * rand;
-    let shimmer = 0.6 + 0.4 * sin(time * (2.0 + rand * 3.5));
+    let dotSize = 0.01 + 0.03 * rand;
+    let shimmer = 0.5 + 0.5 * sin(time * (2.0 + rand * 3.0));
     let dotMask = smoothstep(dotSize * 1.5, dotSize, distance(fract(gridUV), vec2(0.5))) * shimmer;
-    let depthDotMask = smoothstep(1.0, 0.01, depth);
+    let depthDotMask = smoothstep(0.98, 0.01, depth);
     let dotColor = vec3<f32>(1.0, 0.85, 0.4);
-    let glow = smoothstep(dotSize * 1.3, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.12;
+    let glow = smoothstep(dotSize * 1.4, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.1;
     let dot = (dotColor * dotMask + dotColor * glow) * depthDotMask;
 
     return vec4<f32>(baseColor.rgb + dot, 1.0);
@@ -74,6 +66,16 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
 const canvas = document.getElementById('webgpu-canvas');
 const mouse = { x: 0.5, y: 0.5, inside: 0 };
+
+function resizeCanvasToDisplaySize(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const width  = canvas.clientWidth  * dpr;
+  const height = canvas.clientHeight * dpr;
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width  = width;
+    canvas.height = height;
+  }
+}
 
 canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
@@ -86,12 +88,14 @@ canvas.addEventListener('mouseleave', () => mouse.inside = 0);
 async function init() {
   if (!navigator.gpu) throw new Error("WebGPU not supported");
 
+  resizeCanvasToDisplaySize(canvas);
+
   const adapter = await navigator.gpu.requestAdapter();
   const device = await adapter.requestDevice();
   const context = canvas.getContext("webgpu");
 
   const format = navigator.gpu.getPreferredCanvasFormat();
-  context.configure({ device, format, alphaMode: "opaque" });
+  context.configure({ device, format, alphaMode: "opaque", size: [canvas.width, canvas.height] });
 
   const imgTexture = await loadTexture(device, './assets/image.png');
   const depthTexture = await loadTexture(device, './assets/depth.png');
@@ -124,6 +128,7 @@ async function init() {
   });
 
   function frame() {
+    resizeCanvasToDisplaySize(canvas);
     const time = performance.now() / 1000;
     const mouseData = new Float32Array([mouse.x, mouse.y, mouse.inside, time]);
     device.queue.writeBuffer(uniformBuffer, 0, mouseData.buffer);
