@@ -97,8 +97,8 @@ async function init() {
   const format = navigator.gpu.getPreferredCanvasFormat();
   context.configure({ device, format, alphaMode: "opaque", size: [canvas.width, canvas.height] });
 
-  const imgTexture = await loadTexture(device, './assets/image.png');
-  const depthTexture = await loadTexture(device, './assets/depth.png');
+  const imgTexture = await loadTexture(device, './assets/image2.jpg');
+  const depthTexture = await loadTexture(device, './assets/depth2.jpg');
 
   const vertexModule = device.createShaderModule({ code: vertexShaderWGSL });
   const fragmentModule = device.createShaderModule({ code: fragmentShaderWGSL });
