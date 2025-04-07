@@ -109,35 +109,6 @@ function resizeCanvas() {
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-// WebGPU Depth Visual Effect with Reflective Wavy Lines and Responsive Canvas
-
-const vertexShaderWGSL = `...`; // Keep this from the Canvas version above
-const fragmentShaderWGSL = `...`; // Keep this from the Canvas version above
-
-// === Responsive canvas setup ===
-const canvas = document.querySelector("canvas");
-
-function resizeCanvas() {
-    const aspect = 2464 / 1856;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const canvasAspect = width / height;
-
-    if (canvasAspect > aspect) {
-        canvas.height = height * window.devicePixelRatio;
-        canvas.width = height * aspect * window.devicePixelRatio;
-    } else {
-        canvas.width = width * window.devicePixelRatio;
-        canvas.height = width / aspect * window.devicePixelRatio;
-    }
-
-    canvas.style.width = "100vw";
-    canvas.style.height = "100vh";
-    canvas.style.display = "block";
-}
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
-
 // === Image Loader ===
 async function loadImageBitmap(url) {
     const res = await fetch(url);
