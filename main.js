@@ -36,6 +36,10 @@ fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
     return all(uv >= center - halfSize) && all(uv <= center + halfSize);
 }
 
+fn random(p: vec2<f32>) -> f32 {
+    return fract(sin(dot(p ,vec2<f32>(12.9898,78.233))) * 43758.5453);
+}
+
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let time = mouseData.w;
@@ -58,14 +62,19 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var hauteColor = vec3<f32>(0.0);
     let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
+    let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
 
-    // Always sample hauteTex but mask its output to comply with uniform control flow
-    let hauteSample = textureSample(hauteTex, sampler0, localUV).rgb;
-    let regionMask = f32(inRegion(uv, mouse, texSize) && isHovering > 0.5 && depth > 0.5);
-
-    // Particle-style pulsating glow
-    let glow = 0.5 + 0.5 * sin(time * 5.0);
-    hauteColor = hauteSample * regionMask * glow;
+    // Particle mask and animation
+    if (hauteSample > 0.5) {
+        let particleOffset = 0.005 * vec2<f32>(
+            sin(time * 10.0 + uv.x * 100.0),
+            cos(time * 10.0 + uv.y * 100.0)
+        );
+        if (inRegion(uv, mouse, texSize) && isHovering > 0.5 && depth > 0.5) {
+            let glow = 0.6 + 0.4 * sin(dot(uv, vec2<f32>(100.0, 100.0)) + time * 10.0);
+            hauteColor = vec3<f32>(1.0, 1.0, 1.0) * glow;
+        }
+    }
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
