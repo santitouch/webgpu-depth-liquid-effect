@@ -59,16 +59,17 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
 
-    let showHaute = select(false, true, isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5);
-    if (showHaute) {
-        hauteColor = textureSample(hauteTex, sampler0, localUV).rgb;
-        // Simple glowing effect via sine pulse
-        let glow = 0.5 + 0.5 * sin(time * 5.0);
-        hauteColor *= glow;
-    }
+    // Always sample hauteTex but mask its output to comply with uniform control flow
+    let hauteSample = textureSample(hauteTex, sampler0, localUV).rgb;
+    let regionMask = f32(inRegion(uv, mouse, texSize) && isHovering > 0.5 && depth > 0.5);
+
+    // Particle-style pulsating glow
+    let glow = 0.5 + 0.5 * sin(time * 5.0);
+    hauteColor = hauteSample * regionMask * glow;
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
+
 
 
 const canvas = document.querySelector("canvas");
