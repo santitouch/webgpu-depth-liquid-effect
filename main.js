@@ -49,16 +49,22 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let isHovering = mouseData.z;
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    let baseColor = textureSample(img, sampler0, uv);
+    var distUV = uv;
+    if (isHovering > 0.5) {
+        let offset = vec2<f32>(0.015 * sin(uv.y * 20.0 + time), 0.015 * cos(uv.x * 20.0 + time));
+        distUV += offset * 0.5;
+    }
 
-    let gridUV = uv * vec2(700.0);
+    let baseColor = textureSample(img, sampler0, distUV);
+
+    let gridUV = uv * vec2(900.0);
     let rand = hash(floor(gridUV));
-    let dotSize = 0.01 + 0.03 * rand;
-    let shimmer = 0.5 + 0.5 * sin(time * (2.0 + rand * 3.0));
+    let dotSize = 0.006 + 0.01 * rand;
+    let shimmer = 0.5 + 0.5 * sin(time * (1.5 + rand * 2.5));
     let dotMask = smoothstep(dotSize * 1.5, dotSize, distance(fract(gridUV), vec2(0.5))) * shimmer;
-    let depthDotMask = smoothstep(0.98, 0.01, depth);
+    let depthDotMask = smoothstep(0.99, 0.01, depth);
     let dotColor = vec3<f32>(1.0, 0.85, 0.4);
-    let glow = smoothstep(dotSize * 1.4, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.1;
+    let glow = smoothstep(dotSize * 1.3, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.08;
     let dot = (dotColor * dotMask + dotColor * glow) * depthDotMask;
 
     return vec4<f32>(baseColor.rgb + dot, 1.0);
