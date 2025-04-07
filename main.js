@@ -64,7 +64,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let baseColorSample = textureSample(img, sampler0, distUV);
     let depth = textureSample(depthMap, sampler0, distUV).r;
 
-    let tilt = smoothstep(0.2, 0.8, depth);
+    let tilt = smoothstep(0.0, 0.1, depth);
     let blur = tilt * 0.008;
     let blurColor = textureSample(img, sampler0, distUV + vec2<f32>(0.0, blur)) * 0.5 +
                     textureSample(img, sampler0, distUV - vec2<f32>(0.0, blur)) * 0.5;
