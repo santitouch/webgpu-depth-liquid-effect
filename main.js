@@ -53,33 +53,35 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let isHovering = mouseData.z;
     let depth = textureSample(depthMap, sampler0, uv).r;
 
+    // Base image sampling
     var distUV = uv;
     var distortion = vec2<f32>(0.0);
     if (isHovering > 0.5) {
-        distortion = vec2<f32>(0.01 * sin(uv.y * 10.0 + time), 0.01 * cos(uv.x * 10.0 + time));
+        distortion = vec2<f32>(0.02 * sin((uv.y + time) * 8.0), 0.02 * cos((uv.x + time) * 8.0));
         distUV += distortion;
     }
-
     let baseColor = textureSample(img, sampler0, distUV);
 
-    var dot = vec3<f32>(0.0);
+    // Apply tilt-shift blur mask based on depth
+    let tiltAmount = smoothstep(0.2, 0.8, depth);
+    let blur = tiltAmount * 0.008;
+    let blurColor = textureSample(img, sampler0, uv + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, uv - vec2<f32>(0.0, blur)) * 0.5;
+    let finalBase = mix(baseColor, blurColor, tiltAmount);
+
+    // Replace dots with animated lines on bright depth areas
+    var lines = vec3<f32>(0.0);
     if (isHovering > 0.5) {
-        let gridUV = uv * vec2(80.0); // Fewer, larger dots
-        let rand = hash(floor(gridUV));
-        let dotSize = 0.08 + 0.06 * rand; // Increase dot size
-        let shimmer = 0.4 + 0.6 * sin(time * (1.0 + rand * 3.0));
+        let lineUV = uv * vec2(150.0, 3.0);
+        let rand = hash(floor(lineUV));
+        let stripe = 0.5 + 0.5 * sin(lineUV.y * 20.0 + time * 5.0 + rand * 6.2831);
+        let fade = smoothstep(0.0, 1.0, depth); // fade only on bright areas
         let distToMouse = distance(uv, mouse);
-        let circularMask = smoothstep(0.25, 0.0, distToMouse);
-
-        let dotMask = smoothstep(dotSize * 1.6, dotSize, distance(fract(gridUV), vec2(0.5))) * shimmer;
-        let depthDotMask = smoothstep(0.99, 0.02, depth);
-        let color = palette(time + rand * 15.0);
-        let glow = smoothstep(dotSize * 1.2, 0.0, distance(fract(gridUV), vec2(0.5))) * 0.15;
-
-        dot = (color * dotMask + color * glow) * depthDotMask * circularMask;
+        let mask = smoothstep(0.3, 0.0, distToMouse);
+        let color = palette(time + rand * 20.0);
+        lines = color * stripe * fade * mask * 0.6;
     }
 
-    return vec4<f32>(baseColor.rgb + dot, 1.0);
+    return vec4<f32>(finalBase.rgb + lines, 1.0);
 }`;
 
 
