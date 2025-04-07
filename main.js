@@ -62,22 +62,22 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         distUV = uv + distortion;
     }
 
-    let baseColorSample = textureSample(img, sampler0, distUV);
+    let base = textureSample(img, sampler0, distUV);
     let depth = textureSample(depthMap, sampler0, distUV).r;
 
     let tilt = smoothstep(0.2, 0.8, depth);
     let blur = tilt * 0.008;
     let blurColor = textureSample(img, sampler0, distUV + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, distUV - vec2<f32>(0.0, blur)) * 0.5;
-    let finalColor = mix(baseColorSample, blurColor, tilt);
+    let finalColor = mix(base, blurColor, tilt);
 
     var lines = vec3<f32>(0.0);
     if (isHovering > 0.5) {
         let distToMouse = distance(distUV, mouse);
-        let fade = smoothstep(0.1, 0.95, depth); // apply to brighter areas
+        let fade = smoothstep(0.95, 0.1, depth); // brighter only
         let mask = smoothstep(0.25, 0.0, distToMouse);
-        let gridUV = distUV * vec2(60.0, 3.0);
+        let gridUV = distUV * vec2(80.0, 2.0);
         let wave = sin(gridUV.x + time * 2.0);
-        let lineStrength = smoothstep(0.48, 0.52, fract(gridUV.y + wave));
+        let lineStrength = smoothstep(0.45, 0.55, fract(gridUV.y + wave));
         let rand = hash(floor(gridUV));
         let color = palette(time + rand * 10.0);
         lines = color * lineStrength * fade * mask * 1.5;
@@ -89,7 +89,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 // Responsive canvas setup
 const canvas = document.querySelector("canvas");
 function resizeCanvas() {
-    const aspect = 2464 / 1856; // your image aspect ratio
+    const aspect = 2464 / 1856;
     const width = window.innerWidth;
     const height = window.innerHeight;
     const canvasAspect = width / height;
