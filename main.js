@@ -60,18 +60,18 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
         distUV = uv + distortion;
     }
 
-    let colorSample = textureSample(img, sampler0, distUV);
+    let baseColorSample = textureSample(img, sampler0, distUV);
     let depth = textureSample(depthMap, sampler0, distUV).r;
 
     let tilt = smoothstep(0.2, 0.8, depth);
     let blur = tilt * 0.008;
     let blurColor = textureSample(img, sampler0, distUV + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, distUV - vec2<f32>(0.0, blur)) * 0.5;
-    let baseColor = mix(colorSample, blurColor, tilt);
+    let baseColor = mix(baseColorSample, blurColor, tilt);
 
     var lines = vec3<f32>(0.0);
     if (isHovering > 0.5) {
         let distToMouse = distance(distUV, mouse);
-        let fade = smoothstep(0.4, 1.0, depth);
+        let fade = smoothstep(0.0, 0.95, depth);
         let mask = smoothstep(0.25, 0.0, distToMouse);
         let gridUV = distUV * vec2(400.0, 400.0);
         let wave = sin(gridUV.x * 2.0 + time * 5.0) * 0.3;
@@ -84,7 +84,14 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     return vec4<f32>(baseColor.rgb + lines, 1.0);
 }`;
 
-// The rest of main.js remains unchanged
+// Make canvas responsive
+const canvas = document.querySelector("canvas");
+function resizeCanvas() {
+    canvas.width = canvas.clientWidth * window.devicePixelRatio;
+    canvas.height = canvas.clientHeight * window.devicePixelRatio;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
 
 
 const canvas = document.getElementById('webgpu-canvas');
