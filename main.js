@@ -40,12 +40,12 @@ const fragmentShaderWGSL = `
     let base = textureSample(img, sampler0, uv);
     let depthVal = textureSample(depth, sampler0, uv).r;
 
-    // Liquid ripple distortion
+    // Subtle distortion ripple effect only on hover
     var ripple = vec2f(0.0);
     if (uniforms.mouseActive > 0.0) {
       let d = distance(uv, uniforms.mouse);
-      let rippleStrength = 0.005;
-      ripple = normalize(uv - uniforms.mouse) * sin((d - uniforms.time) * 20.0) * rippleStrength / (1.0 + d * 40.0);
+      let rippleStrength = 0.0025;
+      ripple = normalize(uv - uniforms.mouse) * sin((d - uniforms.time) * 10.0) * rippleStrength / (1.0 + d * 40.0);
     }
 
     let displacedUV = clamp(uv + ripple, vec2f(0.0), vec2f(1.0));
@@ -56,11 +56,11 @@ const fragmentShaderWGSL = `
     let mask = circleMask(uv, uniforms.mouse, 0.3);
     let showParticles = step(0.6, brightness) * mask * uniforms.mouseActive;
 
-    let sparkle = rand(uv * uniforms.time * 2.0);
-    let pulse = abs(sin(uniforms.time * 4.0 + sparkle * 10.0));
+    let sparkle = rand(uv * uniforms.time * 3.0);
+    let pulse = abs(sin(uniforms.time * 3.0 + sparkle * 10.0));
 
-    let shimmer = vec3f(1.0, 0.8, 0.2) * pulse;
-    let shimmerAlpha = pulse * 0.3 * showParticles;
+    let shimmer = mix(vec3f(1.0, 0.8, 0.2), vec3f(0.8, 0.8, 1.0), sparkle);
+    let shimmerAlpha = pulse * 0.4 * showParticles;
 
     return vec4f(color.rgb + shimmer * shimmerAlpha, 1.0);
   }
@@ -82,8 +82,9 @@ async function init() {
 
   function resizeCanvas() {
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = canvas.clientWidth * dpr;
-    canvas.height = canvas.clientHeight * dpr;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
     context.configure({
       device,
       format: navigator.gpu.getPreferredCanvasFormat(),
