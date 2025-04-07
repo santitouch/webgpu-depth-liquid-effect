@@ -31,6 +31,11 @@ const fragmentShaderWGSL = `
 @group(0) @binding(3) var hauteTex : texture_2d<f32>;
 @group(0) @binding(4) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
 
+fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
+    let halfSize = size * 0.5;
+    return all(uv >= center - halfSize) && all(uv <= center + halfSize);
+}
+
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let time = mouseData.w;
@@ -50,22 +55,18 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let distortedColor = textureSample(img, sampler0, uvDistorted);
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    // Prepare for haute texture overlay
     var hauteColor = vec3<f32>(0.0);
     let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
-    let dx = abs(uv.x - mouse.x);
-    let dy = abs(uv.y - mouse.y);
-    let inRegion = dx < texSize.x * 0.5 && dy < texSize.y * 0.5;
-    let depthValid = depth > 0.5;
 
-    // Perform texture sampling only when within region and depth is valid (uniform flow)
-    if (isHovering > 0.5 && inRegion && depthValid) {
-        let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
-        hauteColor = textureSample(hauteTex, sampler0, localUV).rgb;
-    }
+    // Use discard-like blending instead of conditionally sampling hauteTex
+    let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
+    let sampleColor = textureSample(hauteTex, sampler0, localUV).rgb;
+    let regionMask = select(0.0, 1.0, f32(isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5));
+    hauteColor = sampleColor * regionMask;
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
+
 
 
 const canvas = document.querySelector("canvas");
