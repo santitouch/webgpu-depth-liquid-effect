@@ -115,8 +115,8 @@ async function init() {
   const format = navigator.gpu.getPreferredCanvasFormat();
   context.configure({ device, format, alphaMode: 'opaque' });
 
-  imgBitmap = await loadImageBitmap('./image.png');
-  depthBitmap = await loadImageBitmap('./depth.png');
+  imgBitmap = await loadImageBitmap('./image2.jpg');
+  depthBitmap = await loadImageBitmap('./depth2.jpg');
 
   const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
 
