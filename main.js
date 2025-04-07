@@ -49,10 +49,12 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let baseColor = textureSample(img, sampler0, uvDistorted);
 
+    // Sample haute texture outside control flow to satisfy uniformity
+    let repeatUV = fract(uv * vec2<f32>(4.0, 4.0));
+    let hauteColor = textureSample(hauteTex, sampler0, repeatUV);
+
     var textEffect = vec3<f32>(0.0);
     if (isHovering > 0.5 && depth > 0.5) {
-        let repeatUV = fract(uv * vec2<f32>(4.0, 4.0)); // repeat texture
-        let hauteColor = textureSample(hauteTex, sampler0, repeatUV);
         textEffect = hauteColor.rgb * 1.2;
     }
 
