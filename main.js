@@ -1,4 +1,4 @@
-// WebGPU Depth Visual Effect with Elegant Reflective Wavy Lines and Responsive Canvas
+// WebGPU Depth Visual Effect with Shimmering Dots and Responsive Canvas
 
 const vertexShaderWGSL = `
 struct VertexOutput {
@@ -43,9 +43,9 @@ fn hash(p: vec2<f32>) -> f32 {
 }
 
 fn palette(t: f32) -> vec3<f32> {
-  let gold = vec3<f32>(1.0, 0.843, 0.0);
-  let silver = vec3<f32>(0.75, 0.75, 0.75);
-  return mix(gold, silver, 0.5 + 0.5 * sin(t * 2.0));
+  let pink = vec3<f32>(1.0, 0.0, 0.5);
+  let navy = vec3<f32>(0.1, 0.1, 0.5);
+  return mix(pink, navy, 0.5 + 0.5 * sin(t * 2.0));
 }
 
 @fragment
@@ -54,31 +54,27 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let mouse = mouseData.xy;
     let isHovering = mouseData.z;
 
-    var distUV = uv;
-    if (isHovering > 0.5) {
-        let distToMouse = distance(uv, mouse);
-        let ripple = sin(distToMouse * 40.0 - time * 4.0) * exp(-distToMouse * 5.0);
-        let distortion = normalize(uv - mouse) * ripple * 0.002;
-        distUV = uv + distortion;
-    }
-
+    let distUV = uv;
     let base = textureSample(img, sampler0, distUV);
     let depth = textureSample(depthMap, sampler0, distUV).r;
 
-    var lines = vec3<f32>(0.0);
+    var dots = vec3<f32>(0.0);
     if (isHovering > 0.5) {
-        let distToMouse = distance(distUV, mouse);
-        let fade = smoothstep(0.8, 1.0, depth); // for brighter areas
-        let mask = smoothstep(0.25, 0.0, distToMouse);
-        let gridUV = distUV * vec2(100.0, 1.0);
-        let wave = sin(gridUV.x * 6.0 + time * 2.0);
-        let lineStrength = smoothstep(0.45, 0.55, fract(gridUV.y + wave));
-        let rand = hash(floor(gridUV));
-        let color = palette(time + rand * 10.0);
-        lines = color * lineStrength * fade * mask * 1.2;
+        let distToMouse = distance(uv, mouse);
+        let fade = smoothstep(0.0, 1.0, depth); // brighter areas
+        let mask = smoothstep(0.2, 0.0, distToMouse);
+        let dotSize = 400.0;
+        let gridUV = uv * dotSize;
+        let cell = floor(gridUV);
+        let jitter = hash(cell + vec2<f32>(time * 0.1, time * 0.2));
+        let offset = fract(gridUV) - 0.5 + jitter * 0.2;
+        let radius = length(offset);
+        let dot = smoothstep(0.1, 0.01, radius);
+        let color = palette(time + hash(cell));
+        dots = color * dot * mask * fade;
     }
 
-    return vec4<f32>(base.rgb + lines, 1.0);
+    return vec4<f32>(base.rgb + dots, 1.0);
 }`;
 
 // Responsive canvas setup
@@ -103,6 +99,7 @@ function resizeCanvas() {
 }
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
+
 
 
 // === Image Loader ===
