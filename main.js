@@ -1,4 +1,4 @@
-// WebGPU Depth Visual Effect with Wavy Lines and Responsive Canvas
+// WebGPU Depth Visual Effect with Elegant Reflective Wavy Lines and Responsive Canvas
 
 const vertexShaderWGSL = `
 struct VertexOutput {
@@ -32,7 +32,6 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     return output;
 }`;
 
-
 const fragmentShaderWGSL = `
 @group(0) @binding(0) var sampler0 : sampler;
 @group(0) @binding(1) var img : texture_2d<f32>;
@@ -44,7 +43,9 @@ fn hash(p: vec2<f32>) -> f32 {
 }
 
 fn palette(t: f32) -> vec3<f32> {
-  return mix(vec3<f32>(1.0, 0.0, 0.6), vec3<f32>(0.0, 0.0, 0.8), 0.5 + 0.5 * sin(t * 3.0));
+  let gold = vec3<f32>(1.0, 0.843, 0.0);
+  let silver = vec3<f32>(0.75, 0.75, 0.75);
+  return mix(gold, silver, 0.5 + 0.5 * sin(t * 2.0));
 }
 
 @fragment
@@ -56,57 +57,58 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var distUV = uv;
     if (isHovering > 0.5) {
         let distToMouse = distance(uv, mouse);
-        let ripple = sin(distToMouse * 60.0 - time * 8.0) * exp(-distToMouse * 10.0);
-        let distortion = normalize(uv - mouse) * ripple * 0.01;
+        let ripple = sin(distToMouse * 40.0 - time * 4.0) * exp(-distToMouse * 5.0);
+        let distortion = normalize(uv - mouse) * ripple * 0.005;
         distUV = uv + distortion;
     }
 
     let baseColorSample = textureSample(img, sampler0, distUV);
     let depth = textureSample(depthMap, sampler0, distUV).r;
 
-    let tilt = smoothstep(0.0, 0.1, depth);
+    let tilt = smoothstep(0.2, 0.8, depth);
     let blur = tilt * 0.008;
-    let blurColor = textureSample(img, sampler0, distUV + vec2<f32>(0.0, blur)) * 0.5 +
-                    textureSample(img, sampler0, distUV - vec2<f32>(0.0, blur)) * 0.5;
-    let baseColor = mix(baseColorSample, blurColor, tilt);
+    let blurColor = textureSample(img, sampler0, distUV + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, distUV - vec2<f32>(0.0, blur)) * 0.5;
+    let finalColor = mix(baseColorSample, blurColor, tilt);
 
     var lines = vec3<f32>(0.0);
     if (isHovering > 0.5) {
         let distToMouse = distance(distUV, mouse);
-        let fade = smoothstep(0.0, 0.95, 1.0 - depth); // apply to bright areas
+        let fade = smoothstep(0.9, 1.0, depth);
         let mask = smoothstep(0.25, 0.0, distToMouse);
-        let gridUV = distUV * vec2(300.0, 300.0);
-        let wave = sin(gridUV.x * 2.0 + time * 5.0) * 0.3;
-        let lineStrength = smoothstep(0.49, 0.51, fract(gridUV.y + wave));
+        let gridUV = distUV * vec2(120.0, 6.0);
+        let wave = sin(gridUV.x + time * 2.0);
+        let lineStrength = smoothstep(0.48, 0.52, fract(gridUV.y + wave));
         let rand = hash(floor(gridUV));
-        let color = palette(time + rand * 20.0);
-        lines = color * lineStrength * fade * mask * 0.8;
+        let color = palette(time + rand * 10.0);
+        lines = color * lineStrength * fade * mask * 1.5;
     }
 
-    return vec4<f32>(baseColor.rgb + lines, 1.0);
+    return vec4<f32>(finalColor.rgb + lines, 1.0);
 }`;
 
-
-async function loadImageBitmap(url) {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    return createImageBitmap(blob);
-}
-
+// Responsive canvas setup
 const canvas = document.querySelector("canvas");
-const adapter = await navigator.gpu.requestAdapter();
-const device = await adapter.requestDevice();
-const context = canvas.getContext("webgpu");
-
-const format = navigator.gpu.getPreferredCanvasFormat();
-context.configure({ device, format, alphaMode: "opaque" });
-
 function resizeCanvas() {
-    canvas.width = canvas.clientWidth * window.devicePixelRatio;
-    canvas.height = canvas.clientHeight * window.devicePixelRatio;
+    const aspect = 2464 / 1856; // your image aspect ratio
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const canvasAspect = width / height;
+
+    if (canvasAspect > aspect) {
+        canvas.height = height * window.devicePixelRatio;
+        canvas.width = height * aspect * window.devicePixelRatio;
+    } else {
+        canvas.width = width * window.devicePixelRatio;
+        canvas.height = width / aspect * window.devicePixelRatio;
+    }
+
+    canvas.style.width = "100vw";
+    canvas.style.height = "100vh";
+    canvas.style.display = "block";
 }
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
+
 
 const [imageBitmap, depthBitmap] = await Promise.all([
     loadImageBitmap("assets/image2.jpg"),
