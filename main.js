@@ -53,37 +53,39 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let isHovering = mouseData.z;
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    // Base image sampling
+    // Subtle distortion only around mouse, both image and depth
     var distUV = uv;
-    var distortion = vec2<f32>(0.0);
     if (isHovering > 0.5) {
-        distortion = vec2<f32>(0.02 * sin((uv.y + time) * 8.0), 0.02 * cos((uv.x + time) * 8.0));
+        let distToMouse = distance(uv, mouse);
+        let ripple = sin(distToMouse * 80.0 - time * 8.0) * exp(-distToMouse * 15.0);
+        let distortion = vec2<f32>(uv - mouse) * ripple * 0.05;
         distUV += distortion;
     }
+
     let baseColor = textureSample(img, sampler0, distUV);
 
-    // Apply tilt-shift blur mask based on depth
+    // Tilt-shift effect using depth
     let tiltAmount = smoothstep(0.2, 0.8, depth);
     let blur = tiltAmount * 0.008;
     let blurColor = textureSample(img, sampler0, uv + vec2<f32>(0.0, blur)) * 0.5 + textureSample(img, sampler0, uv - vec2<f32>(0.0, blur)) * 0.5;
     let finalBase = mix(baseColor, blurColor, tiltAmount);
 
-    // Replace dots with animated lines on bright depth areas
+    // Replace dots with thin animated wavy lines on bright depth areas
     var lines = vec3<f32>(0.0);
     if (isHovering > 0.5) {
-        let lineUV = uv * vec2(150.0, 3.0);
+        let lineUV = uv * vec2(150.0, 1.0);
         let rand = hash(floor(lineUV));
-        let stripe = 0.5 + 0.5 * sin(lineUV.y * 20.0 + time * 5.0 + rand * 6.2831);
-        let fade = smoothstep(0.0, 1.0, depth); // fade only on bright areas
+        let wave = sin(lineUV.x * 10.0 + time * 3.0 + rand * 6.2831);
+        let stripe = smoothstep(0.49, 0.51, fract(lineUV.y + wave * 0.05));
+        let fade = smoothstep(0.6, 1.0, depth); // now on bright areas
         let distToMouse = distance(uv, mouse);
-        let mask = smoothstep(0.3, 0.0, distToMouse);
+        let mask = smoothstep(0.25, 0.0, distToMouse);
         let color = palette(time + rand * 20.0);
         lines = color * stripe * fade * mask * 0.6;
     }
 
     return vec4<f32>(finalBase.rgb + lines, 1.0);
 }`;
-
 
 // (Canvas logic, WebGPU pipeline setup, texture loading, etc. stay as-is from previous version)
 
