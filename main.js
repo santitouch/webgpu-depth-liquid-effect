@@ -1,4 +1,4 @@
-// WebGPU Depth Visual Effect with Repeated "HAUTE COUTURE" Texture, Mouse Distortion & Responsive Canvas
+// WebGPU Depth Visual Effect with HAUTE COUTURE texture that follows mouse & glows
 
 // Vertex shader: outputs UV coordinates and positions for a full-screen quad
 const vertexShaderWGSL = `
@@ -23,7 +23,7 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     return output;
 }`;
 
-// Fragment shader: samples image, depth and haute-texture, applies ripple & pattern
+// Fragment shader: Samples base image, applies ripple, and overlays animated "HAUTE COUTURE" texture that follows the mouse
 const fragmentShaderWGSL = `
 @group(0) @binding(0) var sampler0 : sampler;
 @group(0) @binding(1) var img : texture_2d<f32>;
@@ -39,7 +39,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let depth = textureSample(depthMap, sampler0, uv).r;
 
-    // Ripple distortion effect when hovering
+    // Ripple distortion effect
     var uvDistorted = uv;
     if (isHovering > 0.5) {
         let dist = distance(mouse, uv);
@@ -49,13 +49,17 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let baseColor = textureSample(img, sampler0, uvDistorted);
 
-    // Sample haute texture outside control flow to satisfy uniformity
-    let repeatUV = fract(uv * vec2<f32>(4.0, 4.0));
-    let hauteColor = textureSample(hauteTex, sampler0, repeatUV);
-
+    // Compute localized repeat coordinates for 500x500 box centered on mouse
     var textEffect = vec3<f32>(0.0);
     if (isHovering > 0.5 && depth > 0.5) {
-        textEffect = hauteColor.rgb * 1.2;
+        let size = vec2<f32>(500.0, 500.0);
+        let scaleUV = (uv - mouse) * size;
+        let repeatUV = fract(scaleUV);
+        let hauteColor = textureSample(hauteTex, sampler0, repeatUV);
+
+        // Glow effect
+        let glow = 0.5 + 0.5 * sin(time * 4.0);
+        textEffect = hauteColor.rgb * glow;
     }
 
     return vec4<f32>(baseColor.rgb + textEffect, 1.0);
