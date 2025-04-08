@@ -38,7 +38,7 @@ fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
 }
 
 fn easeInOutQuad(t: f32) -> f32 {
-    return (t < 0.5) ? (2.0 * t * t) : (1.0 - pow(-2.0 * t + 2.0, 2.0) / 2.0);
+    return select(2.0 * t * t, 1.0 - pow(-2.0 * t + 2.0, 2.0) / 2.0, t >= 0.5);
 }
 
 @fragment
