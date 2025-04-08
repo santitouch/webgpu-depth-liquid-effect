@@ -30,7 +30,7 @@ const fragmentShaderWGSL = `
 @group(0) @binding(2) var depthMap : texture_2d<f32>;
 @group(0) @binding(3) var hauteTex : texture_2d<f32>;
 @group(0) @binding(4) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
-@group(0) @binding(5) var<uniform> clickState : f32; // 1.0 if mouse is down
+@group(0) @binding(5) var<uniform> clickStateBuffer : f32;
 
 fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
     let halfSize = size * 0.5;
@@ -57,7 +57,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let depth = textureSample(depthMap, sampler0, uv).r;
 
     let baseSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
-    let scale = mix(1.0, 1.4, clickState);
+    let scale = mix(1.0, 1.4, clickStateBuffer);
     let texSize = baseSize * scale;
 
     let regionCenter = mouse;
@@ -69,7 +69,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let depthMask = step(0.5, depth);
     let showHaute = isHovering * regionMask * depthMask;
 
-    let glow = mix(1.0, 2.5 + 0.5 * sin(time * 10.0), clickState);
+    let glow = mix(1.0, 2.5 + 0.5 * sin(time * 10.0), clickStateBuffer);
     let hauteColor = vec3<f32>(1.0) * glow * hauteSample * showHaute;
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
