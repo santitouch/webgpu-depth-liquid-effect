@@ -1,4 +1,4 @@
-// WebGPU Depth Visual Effect with HAUTE COUTURE click+hold grow + wave animation (no glow)
+// WebGPU Depth Visual Effect with HAUTE COUTURE click+hold grow + wave animation (no glow + eased scaling)
 
 // Vertex shader: outputs UV coordinates and positions for a full-screen quad
 const vertexShaderWGSL = `
@@ -38,7 +38,7 @@ fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
 }
 
 fn easeInOutQuad(t: f32) -> f32 {
-    return mix(2.0 * t * t, 1.0 - pow(-2.0 * t + 2.0, 2.0) / 2.0, step(0.5, t));
+    return (t < 0.5) ? (2.0 * t * t) : (1.0 - pow(-2.0 * t + 2.0, 2.0) / 2.0);
 }
 
 @fragment
@@ -66,7 +66,12 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let texSize = scale * vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
 
     // Subtle wave effect
-    let offset = vec2<f32>(sin(time * 2.0) * 0.01, cos(time * 2.0) * 0.01) * easedPress;
+    let waveOffset = vec2<f32>(
+        sin((uv.y + time) * 10.0) * 0.01,
+        cos((uv.x + time) * 10.0) * 0.01
+    ) * easedPress;
+
+    let offset = waveOffset;
     let localUV = (uv - (mouse - texSize * 0.5 + offset)) / texSize;
     let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
 
@@ -75,6 +80,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
+
 
 const canvas = document.querySelector("canvas");
 function resizeCanvas() {
