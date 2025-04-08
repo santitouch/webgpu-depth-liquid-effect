@@ -73,7 +73,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let offset = waveOffset;
     let localUV = (uv - (mouse - texSize * 0.5 + offset)) / texSize;
-    let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
+    let hauteSample = textureSample(hauteTex, sampler0, localUV).rgb;
 
     let showHaute = isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5;
     hauteColor = select(vec3<f32>(0.0), vec3<f32>(hauteSample), showHaute);
