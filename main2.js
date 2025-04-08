@@ -125,7 +125,7 @@ async function init() {
     const [imageBitmap, depthBitmap, hauteBitmap] = await Promise.all([
         loadImageBitmap("assets/image2.jpg"),
         loadImageBitmap("assets/depth2.jpg"),
-        loadImageBitmap("assets/haute-texture3.png")
+        loadImageBitmap("assets/haute-texture4.png")
     ]);
 
     const imgTex = device.createTexture({
