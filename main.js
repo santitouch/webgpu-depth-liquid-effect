@@ -60,11 +60,14 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let scale = mix(1.0, 1.4, clickState);
     let texSize = baseSize * scale;
 
-    let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
-    let hauteSample = textureSample(hauteTex, sampler0, clamp(localUV, vec2<f32>(0.0), vec2<f32>(1.0))).r;
+    let regionCenter = mouse;
+    let regionUV = (uv - (regionCenter - texSize * 0.5)) / texSize;
+    let clampedUV = clamp(regionUV, vec2<f32>(0.0), vec2<f32>(1.0));
+    let hauteSample = textureSample(hauteTex, sampler0, clampedUV).r;
 
-    let inRegionMask = f32(inRegion(uv, mouse, texSize));
-    let showHaute = isHovering * inRegionMask * step(0.5, depth);
+    let regionMask = f32(inRegion(uv, regionCenter, texSize));
+    let depthMask = step(0.5, depth);
+    let showHaute = isHovering * regionMask * depthMask;
 
     let glow = mix(1.0, 2.5 + 0.5 * sin(time * 10.0), clickState);
     let hauteColor = vec3<f32>(1.0) * glow * hauteSample * showHaute;
