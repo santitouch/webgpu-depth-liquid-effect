@@ -1,4 +1,4 @@
-// WebGPU Depth Visual Effect with HAUTE COUTURE click+hold grow effect (no glow)
+// WebGPU Depth Visual Effect with HAUTE COUTURE click+hold grow + wave animation (no glow)
 
 // Vertex shader: outputs UV coordinates and positions for a full-screen quad
 const vertexShaderWGSL = `
@@ -23,18 +23,22 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     return output;
 }`;
 
-// Fragment shader: Samples base image, applies ripple, and overlays HAUTE COUTURE text with grow effect on click (no glow)
+// Fragment shader
 const fragmentShaderWGSL = `
 @group(0) @binding(0) var sampler0 : sampler;
 @group(0) @binding(1) var img : texture_2d<f32>;
 @group(0) @binding(2) var depthMap : texture_2d<f32>;
 @group(0) @binding(3) var hauteTex : texture_2d<f32>;
 @group(0) @binding(4) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
-@group(0) @binding(5) var<uniform> pressState : f32;      // 0.0 to 1.0 for click+hold
+@group(0) @binding(5) var<uniform> pressState : f32;      // click and hold state
 
 fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
     let halfSize = size * 0.5;
     return all(uv >= center - halfSize) && all(uv <= center + halfSize);
+}
+
+fn easeInOutQuad(t: f32) -> f32 {
+    return mix(2.0 * t * t, 1.0 - pow(-2.0 * t + 2.0, 2.0) / 2.0, step(0.5, t));
 }
 
 @fragment
@@ -57,9 +61,13 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let depth = textureSample(depthMap, sampler0, uv).r;
 
     var hauteColor = vec3<f32>(0.0);
-    let scale = mix(1.0, 1.5, clamp(pressState, 0.0, 1.0));
+    let easedPress = easeInOutQuad(clamp(pressState, 0.0, 1.0));
+    let scale = mix(1.0, 1.5, easedPress);
     let texSize = scale * vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
-    let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
+
+    // Subtle wave effect
+    let offset = vec2<f32>(sin(time * 2.0) * 0.01, cos(time * 2.0) * 0.01) * easedPress;
+    let localUV = (uv - (mouse - texSize * 0.5 + offset)) / texSize;
     let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
 
     let showHaute = isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5;
