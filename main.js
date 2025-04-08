@@ -1,80 +1,82 @@
-// WebGPU Depth Visual Effect with HAUTE COUTURE glow effect on click
-
-// Vertex shader: outputs UV coordinates and positions for a full-screen quad
-const vertexShaderWGSL = `
-struct VertexOutput {
-    @builtin(position) Position : vec4<f32>,
-    @location(0) uv : vec2<f32>,
-};
-
-@vertex
-fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
-    var pos = array<vec2<f32>, 6>(
-        vec2(-1.0, -1.0), vec2( 1.0, -1.0), vec2(-1.0,  1.0),
-        vec2(-1.0,  1.0), vec2( 1.0, -1.0), vec2( 1.0,  1.0)
-    );
-    var uv = array<vec2<f32>, 6>(
-        vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(0.0, 0.0),
-        vec2(0.0, 0.0), vec2(1.0, 1.0), vec2(1.0, 0.0)
-    );
-    var output : VertexOutput;
-    output.Position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
-    output.uv = uv[vertexIndex];
-    return output;
-}`;
-
-// Fragment shader: Samples base image, applies ripple, and overlays HAUTE COUTURE texture with glow on click
-const fragmentShaderWGSL = `
-@group(0) @binding(0) var sampler0 : sampler;
-@group(0) @binding(1) var img : texture_2d<f32>;
-@group(0) @binding(2) var depthMap : texture_2d<f32>;
-@group(0) @binding(3) var hauteTex : texture_2d<f32>;
-@group(0) @binding(4) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
-@group(0) @binding(5) var<uniform> clickStateBuffer : f32;
-
-fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
-    let halfSize = size * 0.5;
-    return all(uv >= center - halfSize) && all(uv <= center + halfSize);
-}
-
-@fragment
-fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    let time = mouseData.w;
-    let mouse = mouseData.xy;
-    let isHovering = mouseData.z;
-
-    let baseColor = textureSample(img, sampler0, uv);
-
-    // Ripple distortion effect
-    var uvDistorted = uv;
-    if (isHovering > 0.5) {
-        let dist = distance(mouse, uv);
-        let ripple = 0.005 * sin(40.0 * dist - time * 4.0);
-        uvDistorted += normalize(uv - mouse) * ripple * smoothstep(0.15, 0.0, dist);
-    }
-
-    let distortedColor = textureSample(img, sampler0, uvDistorted);
-    let depth = textureSample(depthMap, sampler0, uv).r;
-
-    let baseSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
-    let scale = mix(1.0, 1.4, clickStateBuffer);
-    let texSize = baseSize * scale;
-
-    let regionCenter = mouse;
-    let regionUV = (uv - (regionCenter - texSize * 0.5)) / texSize;
-    let clampedUV = clamp(regionUV, vec2<f32>(0.0), vec2<f32>(1.0));
-
-    // Always sample hauteTex, use mask to apply selectively
-    let hauteSample = textureSample(hauteTex, sampler0, clampedUV).r;
-    let regionMask = select(0.0, 1.0, inRegion(uv, regionCenter, texSize));
-    let depthMask = step(0.5, depth);
-    let showHaute = isHovering * regionMask * depthMask;
-
-    let glow = mix(1.0, 2.5 + 0.5 * sin(time * 10.0), clickStateBuffer);
-    let hauteColor = vec3<f32>(1.0) * glow * hauteSample * showHaute;
-
-    return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
-}`;
+// WebGPU Depth Visual Effect with HAUTE COUTURE particles that follow mouse and depth
+ 
+ // Vertex shader: outputs UV coordinates and positions for a full-screen quad
+ const vertexShaderWGSL = `
+ struct VertexOutput {
+     @builtin(position) Position : vec4<f32>,
+     @location(0) uv : vec2<f32>,
+ };
+ 
+ @vertex
+ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
+     var pos = array<vec2<f32>, 6>(
+         vec2(-1.0, -1.0), vec2( 1.0, -1.0), vec2(-1.0,  1.0),
+         vec2(-1.0,  1.0), vec2( 1.0, -1.0), vec2( 1.0,  1.0)
+     );
+     var uv = array<vec2<f32>, 6>(
+         vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(0.0, 0.0),
+         vec2(0.0, 0.0), vec2(1.0, 1.0), vec2(1.0, 0.0)
+     );
+     var output : VertexOutput;
+     output.Position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
+     output.uv = uv[vertexIndex];
+     return output;
+ }`;
+ 
+ // Fragment shader: Samples base image, applies ripple, and overlays particle-style HAUTE COUTURE text based on depth and mouse
+ const fragmentShaderWGSL = `
+ @group(0) @binding(0) var sampler0 : sampler;
+ @group(0) @binding(1) var img : texture_2d<f32>;
+ @group(0) @binding(2) var depthMap : texture_2d<f32>;
+ @group(0) @binding(3) var hauteTex : texture_2d<f32>;
+ @group(0) @binding(4) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
+ 
+ fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
+     let halfSize = size * 0.5;
+     return all(uv >= center - halfSize) && all(uv <= center + halfSize);
+ }
+ 
+ @fragment
+ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+     let time = mouseData.w;
+     let mouse = mouseData.xy;
+     let isHovering = mouseData.z;
+ 
+     let baseColor = textureSample(img, sampler0, uv);
+ 
+     // Ripple distortion effect
+     var uvDistorted = uv;
+     if (isHovering > 0.5) {
+         let dist = distance(mouse, uv);
+         let ripple = 0.005 * sin(40.0 * dist - time * 4.0);
+         uvDistorted += normalize(uv - mouse) * ripple * smoothstep(0.15, 0.0, dist);
+     }
+ 
+     let distortedColor = textureSample(img, sampler0, uvDistorted);
+     let depth = textureSample(depthMap, sampler0, uv).r;
+ 
+     var hauteColor = vec3<f32>(0.0);
+     let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
+     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
+ 
+     let showHaute = select(false, true, isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5);
+     if (showHaute) {
+         hauteColor = textureSample(hauteTex, sampler0, localUV).rgb;
+         // Simple glowing effect via sine pulse
+         let glow = 0.5 + 0.5 * sin(time * 5.0);
+         hauteColor *= glow;
+     }
+     // Always sample hauteTex but mask its output to comply with uniform control flow
+     let hauteSample = textureSample(hauteTex, sampler0, localUV).rgb;
+     let regionMask = f32(inRegion(uv, mouse, texSize) && isHovering > 0.5 && depth > 0.5);
+ 
+     // Particle-style pulsating glow
+     let glow = 0.5 + 0.5 * sin(time * 5.0);
+     hauteColor = hauteSample * regionMask * glow;
+ 
+     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
+ }`;
+ 
 
 const canvas = document.querySelector("canvas");
 function resizeCanvas() {
