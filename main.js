@@ -124,7 +124,7 @@ async function init() {
 
     const [imageBitmap, depthBitmap, hauteBitmap] = await Promise.all([
         loadImageBitmap("assets/image.png"),
-        loadImageBitmap("assets/depth.png"),
+        loadImageBitmap("assets/depth3.png"),
         loadImageBitmap("assets/haute-texture2.png")
     ]);
 
