@@ -123,8 +123,8 @@ async function init() {
     context.configure({ device, format, alphaMode: "opaque" });
 
     const [imageBitmap, depthBitmap, hauteBitmap] = await Promise.all([
-        loadImageBitmap("assets/image2.jpg"),
-        loadImageBitmap("assets/depth2.jpg"),
+        loadImageBitmap("assets/image.png"),
+        loadImageBitmap("assets/depth.png"),
         loadImageBitmap("assets/haute-texture.png")
     ]);
 
