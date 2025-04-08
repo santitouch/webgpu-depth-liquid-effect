@@ -64,14 +64,14 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let regionUV = (uv - (regionCenter - texSize * 0.5)) / texSize;
     let clampedUV = clamp(regionUV, vec2<f32>(0.0), vec2<f32>(1.0));
 
-    // Ensure sample happens regardless of non-uniform control flow by masking result
-    let hauteSampleColor = textureSample(hauteTex, sampler0, clampedUV).r;
-    let regionMask = f32(inRegion(uv, regionCenter, texSize));
+    // Always sample hauteTex, use mask to apply selectively
+    let hauteSample = textureSample(hauteTex, sampler0, clampedUV).r;
+    let regionMask = select(0.0, 1.0, inRegion(uv, regionCenter, texSize));
     let depthMask = step(0.5, depth);
     let showHaute = isHovering * regionMask * depthMask;
 
     let glow = mix(1.0, 2.5 + 0.5 * sin(time * 10.0), clickStateBuffer);
-    let hauteColor = vec3<f32>(1.0) * glow * hauteSampleColor * showHaute;
+    let hauteColor = vec3<f32>(1.0) * glow * hauteSample * showHaute;
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
