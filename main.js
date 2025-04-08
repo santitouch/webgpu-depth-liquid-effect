@@ -11,7 +11,7 @@ struct VertexOutput {
 fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     var pos = array<vec2<f32>, 6>(
         vec2(-1.0, -1.0), vec2( 1.0, -1.0), vec2(-1.0,  1.0),
-        vec2(-1.0,  1.0), vec2( 1.0, -1.0), vec2( 1.0,  1.0)
+        vec2(-1.0,  1.0), vec2( 1.0, -1.0), vec2(1.0,  1.0)
     );
     var uv = array<vec2<f32>, 6>(
         vec2(0.0, 1.0), vec2(1.0, 1.0), vec2(0.0, 0.0),
@@ -61,15 +61,15 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let depth = textureSample(depthMap, sampler0, uv).r;
 
     var hauteColor = vec3<f32>(0.0);
-    let easedPress = easeInOutQuad(clamp(pressState, 0.0, 1.0));
-    let scale = mix(1.0, 1.5, easedPress);
+
+    // Apply easing over time in main.js and pass final scale as pressState
+    let scale = mix(1.0, 1.5, pressState);
     let texSize = scale * vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
 
-    // Slower and smoother wave effect
     let waveOffset = vec2<f32>(
-        sin((uv.y + time * 0.5) * 4.0) * 0.007,
-        cos((uv.x + time * 0.5) * 4.0) * 0.007
-    ) * easedPress;
+        sin((uv.y + time * 0.2) * 4.0) * 0.005,
+        cos((uv.x + time * 0.2) * 4.0) * 0.005
+    ) * pressState;
 
     let offset = waveOffset;
     let localUV = (uv - (mouse - texSize * 0.5 + offset)) / texSize;
@@ -80,6 +80,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
+
 
 
 const canvas = document.querySelector("canvas");
