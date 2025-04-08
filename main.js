@@ -30,6 +30,7 @@ const fragmentShaderWGSL = `
 @group(0) @binding(2) var depthMap : texture_2d<f32>;
 @group(0) @binding(3) var hauteTex : texture_2d<f32>;
 @group(0) @binding(4) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
+@group(0) @binding(5) var<uniform> pressState : f32;      // 0.0 to 1.0 for click+hold
 
 fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
     let halfSize = size * 0.5;
@@ -56,8 +57,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let depth = textureSample(depthMap, sampler0, uv).r;
 
     var hauteColor = vec3<f32>(0.0);
-    let pressBasedScale = smoothstep(0.0, 1.0, sin(time * 2.0) * 0.5 + 0.5); // animate scale as stand-in for press state
-    let scale = mix(1.0, 1.5, pressBasedScale);
+    let scale = mix(1.0, 1.5, clamp(pressState, 0.0, 1.0));
     let texSize = scale * vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
     let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
@@ -136,6 +136,7 @@ async function init() {
 
     const sampler = device.createSampler({ magFilter: "linear", minFilter: "linear" });
     const mouseBuffer = device.createBuffer({ size: 4 * 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    const pressStateBuffer = device.createBuffer({ size: 4, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
 
     const bindGroupLayout = device.createBindGroupLayout({
         entries: [
@@ -144,6 +145,7 @@ async function init() {
             { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {} },
             { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: {} },
             { binding: 4, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
+            { binding: 5, visibility: GPUShaderStage.FRAGMENT, buffer: { type: "uniform" } },
         ],
     });
 
@@ -169,10 +171,13 @@ async function init() {
             { binding: 2, resource: depthTex.createView() },
             { binding: 3, resource: hauteTex.createView() },
             { binding: 4, resource: { buffer: mouseBuffer } },
+            { binding: 5, resource: { buffer: pressStateBuffer } },
         ]
     });
 
     let mouse = [0, 0, 0];
+    let mousePressed = false;
+
     canvas.addEventListener("mouseenter", () => (mouse[2] = 1));
     canvas.addEventListener("mouseleave", () => (mouse[2] = 0));
     canvas.addEventListener("mousemove", (e) => {
@@ -180,10 +185,13 @@ async function init() {
         mouse[0] = (e.clientX - rect.left) / rect.width;
         mouse[1] = (e.clientY - rect.top) / rect.height;
     });
+    canvas.addEventListener("mousedown", () => (mousePressed = true));
+    canvas.addEventListener("mouseup", () => (mousePressed = false));
 
     function frame(time) {
         const seconds = time * 0.001;
         device.queue.writeBuffer(mouseBuffer, 0, new Float32Array([mouse[0], mouse[1], mouse[2], seconds]));
+        device.queue.writeBuffer(pressStateBuffer, 0, new Float32Array([mousePressed ? 1.0 : 0.0]));
 
         const encoder = device.createCommandEncoder();
         const view = context.getCurrentTexture().createView();
