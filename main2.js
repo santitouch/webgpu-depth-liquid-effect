@@ -123,9 +123,9 @@ async function init() {
     context.configure({ device, format, alphaMode: "opaque" });
 
     const [imageBitmap, depthBitmap, hauteBitmap] = await Promise.all([
-        loadImageBitmap("assets/image.png"),
-        loadImageBitmap("assets/depth3.jpg"),
-        loadImageBitmap("assets/haute-texture2.png")
+        loadImageBitmap("assets/image2.jpg"),
+        loadImageBitmap("assets/depth2.jpg"),
+        loadImageBitmap("assets/haute-texture3.png")
     ]);
 
     const imgTex = device.createTexture({
