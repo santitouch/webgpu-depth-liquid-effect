@@ -1,4 +1,4 @@
-// WebGPU Depth Visual Effect with HAUTE COUTURE particles that follow mouse and depth
+// WebGPU Depth Visual Effect with HAUTE COUTURE click+hold glow grow
 
 // Vertex shader: outputs UV coordinates and positions for a full-screen quad
 const vertexShaderWGSL = `
@@ -23,21 +23,18 @@ fn main(@builtin(vertex_index) vertexIndex : u32) -> VertexOutput {
     return output;
 }`;
 
-// Fragment shader: Samples base image, applies ripple, and overlays particle-style HAUTE COUTURE text based on depth and mouse
+// Fragment shader: Samples base image, applies ripple, and overlays HAUTE COUTURE text with grow/glow effect on click
 const fragmentShaderWGSL = `
 @group(0) @binding(0) var sampler0 : sampler;
 @group(0) @binding(1) var img : texture_2d<f32>;
 @group(0) @binding(2) var depthMap : texture_2d<f32>;
 @group(0) @binding(3) var hauteTex : texture_2d<f32>;
 @group(0) @binding(4) var<uniform> mouseData : vec4<f32>; // x, y, inside, time
+@group(0) @binding(5) var<uniform> pressState : f32;      // click and hold state
 
 fn inRegion(uv: vec2<f32>, center: vec2<f32>, size: vec2<f32>) -> bool {
     let halfSize = size * 0.5;
     return all(uv >= center - halfSize) && all(uv <= center + halfSize);
-}
-
-fn random(p: vec2<f32>) -> f32 {
-    return fract(sin(dot(p ,vec2<f32>(12.9898,78.233))) * 43758.5453);
 }
 
 @fragment
@@ -60,16 +57,14 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let depth = textureSample(depthMap, sampler0, uv).r;
 
     var hauteColor = vec3<f32>(0.0);
-    let texSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
+    let scale = mix(1.0, 1.5, clamp(pressState, 0.0, 1.0));
+    let texSize = scale * vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
     let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
     let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
 
-    // Particle effect instead of texture fade
-    if (hauteSample > 0.5 && inRegion(uv, mouse, texSize) && isHovering > 0.5 && depth > 0.5) {
-        let particle = random(floor(uv * 500.0)) * 0.5 + 0.5;
-        let animate = 0.3 * sin(time * 10.0 + uv.x * 100.0 + uv.y * 100.0);
-        let brightness = 0.8 + animate;
-        hauteColor = vec3<f32>(1.0) * brightness * particle;
+    if (hauteSample > 0.1 && inRegion(uv, mouse, texSize) && isHovering > 0.5 && depth > 0.5) {
+        let glow = mix(1.0, 2.5, pressState);
+        hauteColor = vec3<f32>(hauteSample) * glow;
     }
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
