@@ -65,10 +65,10 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let scale = mix(1.0, 1.5, easedPress);
     let texSize = scale * vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
 
-    // Subtle wave effect
+    // Slower and smoother wave effect
     let waveOffset = vec2<f32>(
-        sin((uv.y + time) * 10.0) * 0.01,
-        cos((uv.x + time) * 10.0) * 0.01
+        sin((uv.y + time * 0.5) * 4.0) * 0.007,
+        cos((uv.x + time * 0.5) * 4.0) * 0.007
     ) * easedPress;
 
     let offset = waveOffset;
