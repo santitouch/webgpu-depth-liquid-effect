@@ -59,19 +59,19 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let baseSize = vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
     let scale = mix(1.0, 1.4, clickState);
     let texSize = baseSize * scale;
-    let showHaute = select(false, true, isHovering > 0.5 && inRegion(uv, mouse, texSize) && depth > 0.5);
 
-    var hauteColor = vec3<f32>(0.0);
-    if (showHaute) {
-        let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
-        let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
-        let hauteMask = step(0.5, hauteSample);
-        let glow = mix(1.0, 2.5 + 0.5 * sin(time * 10.0), clickState);
-        hauteColor = vec3<f32>(1.0) * glow * hauteMask;
-    }
+    let localUV = (uv - (mouse - texSize * 0.5)) / texSize;
+    let hauteSample = textureSample(hauteTex, sampler0, localUV).r;
+    let inRegionMask = f32(all(localUV >= vec2<f32>(0.0)) && all(localUV <= vec2<f32>(1.0)));
+    let inRegionCheck = f32(inRegion(uv, mouse, texSize));
+    let showHaute = isHovering * inRegionMask * inRegionCheck * step(0.5, depth);
+
+    let glow = mix(1.0, 2.5 + 0.5 * sin(time * 10.0), clickState);
+    let hauteColor = vec3<f32>(1.0) * glow * hauteSample * showHaute;
 
     return vec4<f32>(distortedColor.rgb + hauteColor, 1.0);
 }`;
+
 
 const canvas = document.querySelector("canvas");
 function resizeCanvas() {
