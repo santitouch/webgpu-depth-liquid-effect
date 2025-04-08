@@ -67,8 +67,8 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let texSize = scale * vec2<f32>(500.0 / 2464.0, 500.0 / 1856.0);
 
     let waveOffset = vec2<f32>(
-        sin((uv.y + time * 0.2) * 4.0) * 0.005,
-        cos((uv.x + time * 0.2) * 4.0) * 0.005
+        sin((uv.y + time * 0.2) * 8.0) * 0.005,
+        cos((uv.x + time * 0.2) * 8.0) * 0.005
     ) * pressState;
 
     let offset = waveOffset;
@@ -124,7 +124,7 @@ async function init() {
 
     const [imageBitmap, depthBitmap, hauteBitmap] = await Promise.all([
         loadImageBitmap("assets/image.png"),
-        loadImageBitmap("assets/depth3.png"),
+        loadImageBitmap("assets/depth3.jpg"),
         loadImageBitmap("assets/haute-texture2.png")
     ]);
 
